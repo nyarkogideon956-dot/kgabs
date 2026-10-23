@@ -288,7 +288,9 @@ table.rep td.neg{color:var(--bad);font-weight:700}
       <button data-act="go-owing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Owing</button>
       <button data-act="nav" data-v="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Reports</button>
     </div>
-    <div class="sec" id="home-sec">Today &amp; this month</div>
+    <div class="card" id="home-pick" style="margin-top:12px"></div>
+    <div class="stats" id="home-period"></div>
+    <div class="sec" id="home-sec">Right now</div>
     <div class="stats" id="home-stats"></div>
     <div class="sec">Recent sales</div><div id="home-sales"></div>
     <div class="sec">Recent estimates</div><div id="home-est"></div>
@@ -547,6 +549,7 @@ function boot() {
     if (ST.pin) store('kg_pin', ST.pin);
     store('kg_init', JSON.stringify(d));
     applyInit(d);
+    loadHomePeriod();
     syncQueue();
   }).catch(function () { });
 }
@@ -556,7 +559,7 @@ function refresh() {
     ST.products = d.products; ST.labour = d.labour; ST.staff = d.staff; if (d.workers && d.workers.length) ST.workers = d.workers;
     renderPos(); renderStock(); if (ST.view === 'jobs') loadJobs(); if (ST.view === 'exp') loadExp(); if (ST.view === 'work') loadWorkers();
     return api('apiStats');
-  }).then(function (s) { ST.stats = s; renderHome(); if (ST.view === 'est' && ST.estTab === 'list') loadEstList(); if (ST.view === 'sales' && ST.saleTab !== 'new') showSaleTab(ST.saleTab); toast('Up to date'); }).catch(function () { });
+  }).then(function (s) { ST.stats = s; renderHome(); loadHomePeriod(); if (ST.view === 'est' && ST.estTab === 'list') loadEstList(); if (ST.view === 'sales' && ST.saleTab !== 'new') showSaleTab(ST.saleTab); toast('Up to date'); }).catch(function () { });
 }
 
 /* ============ navigation ============ */
@@ -568,7 +571,7 @@ function go(v) {
   $('#topSub').textContent = { home: 'Sales & Estimates', est: 'Estimates', sales: 'Sales / POS', stock: 'Stock', jobs: 'Jobs', more: 'More', exp: 'Expenses', work: 'Workers & wages', rep: 'Reports', clients: 'Clients' }[v];
   window.scrollTo(0, 0);
   updateBar();
-  if (v === 'home' && ST.stats) api('apiStats').then(function (s) { ST.stats = s; renderHome(); }).catch(function () { });
+  if (v === 'home' && ST.stats) { api('apiStats').then(function (s) { ST.stats = s; renderHome(); }).catch(function () { }); loadHomePeriod(); }
   if (v === 'jobs') loadJobs();
   if (v === 'exp') { if (!$('#ex-from').value) exRange('month', true); loadExp(); }
   if (v === 'work') loadWorkers();
@@ -589,29 +592,70 @@ function updateBar() {
 }
 
 /* ============ HOME ============ */
+/* ---- Home: pick a day or month ---- */
+ST.homeMode = 'Day'; ST.homeDay = ''; ST.homeMonth = ''; ST.homePeriod = null;
+function homeRange() {
+  if (!ST.homeDay) ST.homeDay = today();
+  if (!ST.homeMonth) ST.homeMonth = today().slice(0, 7);
+  if (ST.homeMode === 'Day') {
+    var dd = new Date(ST.homeDay + 'T12:00:00');
+    return { from: ST.homeDay, to: ST.homeDay, label: ST.homeDay === today() ? 'Today' : dd.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) };
+  }
+  var p = ST.homeMonth.split('-'), last = new Date(+p[0], +p[1], 0);
+  return { from: ST.homeMonth + '-01', to: iso(last), label: ST.homeMonth === today().slice(0, 7) ? 'This month' : last.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) };
+}
+function renderHomePick() {
+  var r = homeRange(), m = ST.homeMode;
+  $('#home-pick').innerHTML =
+    '<div class="tog" style="margin-bottom:10px">' + ['Day', 'Month'].map(function (k) { return '<button data-act="hp-mode" data-m="' + k + '" class="' + (k === m ? 'on' : '') + '">' + k + '</button>'; }).join('') + '</div>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<button class="btn s sm" data-act="hp-step" data-d="-1" aria-label="Before">◀</button>' +
+    (m === 'Day' ? '<input class="in" type="date" id="hp-day" value="' + esc(ST.homeDay) + '" style="flex:1">' : '<input class="in" type="month" id="hp-month" value="' + esc(ST.homeMonth) + '" style="flex:1">') +
+    '<button class="btn s sm" data-act="hp-step" data-d="1" aria-label="After">▶</button></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><b class="cond" style="font-size:18px;color:var(--deep)">' + esc(r.label) + '</b>' +
+    '<button class="link" data-act="hp-full">Full report ›</button></div>';
+  var di = $('#hp-day'); if (di) di.addEventListener('change', function () { if (this.value) { ST.homeDay = this.value; loadHomePeriod(); } });
+  var mi = $('#hp-month'); if (mi) mi.addEventListener('change', function () { if (/^\d{4}-\d{2}$/.test(this.value)) { ST.homeMonth = this.value; loadHomePeriod(); } });
+}
+function homeStep(d) {
+  if (ST.homeMode === 'Day') { var x = new Date(ST.homeDay + 'T12:00:00'); x.setDate(x.getDate() + d); ST.homeDay = iso(x); }
+  else { var p = ST.homeMonth.split('-'), y = new Date(+p[0], +p[1] - 1 + d, 1); ST.homeMonth = y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0'); }
+  loadHomePeriod();
+}
+function loadHomePeriod() {
+  var r = homeRange(); renderHomePick();
+  if (!ST.homePeriod) $('#home-period').innerHTML = '<div class="empty" style="grid-column:1/-1">Loading…</div>';
+  else $('#home-period').style.opacity = '.5';
+  return api('apiPeriod', r.from, r.to).then(function (p) { ST.homePeriod = p; $('#home-period').style.opacity = ''; renderHomePeriod(); })
+    .catch(function (e) { $('#home-period').style.opacity = ''; $('#home-period').innerHTML = '<div class="empty" style="grid-column:1/-1">' + esc(isNetErr(e) ? 'No internet: open this day or month once while online to keep a copy.' : e.message) + '</div>'; });
+}
+function renderHomePeriod() {
+  var p = ST.homePeriod; if (!p) return;
+  var sm = function (v) { return money(v).replace('GH₵ ', ''); };
+  var ways = 'Cash ' + sm(p.cash) + ' · MoMo ' + sm(p.momo) + (p.bank ? ' · Bank ' + sm(p.bank) : '');
+  $('#home-period').innerHTML = p.owner ?
+    stat('Sales', money(p.sales), p.salesCount + ' sale' + (p.salesCount === 1 ? '' : 's') + (p.owing ? ' · owing ' + sm(p.owing) : ''), true) +
+    stat('Money in', money(p.moneyIn), ways) +
+    stat('Expenses', money(p.expenses), 'payroll ' + sm(p.wages)) +
+    stat('Profit', money(p.profit), 'money in − expenses', true) +
+    stat('Job payments', money(p.jobsIn), 'debts collected ' + sm(p.debtIn)) +
+    stat('New estimates', String(p.estCount), money(p.estValue) + ' quoted')
+    : stat('My sales', money(p.sales), p.salesCount + ' sale' + (p.salesCount === 1 ? '' : 's'), true) + stat('I received', money(p.moneyIn), ways);
+}
 function renderHome() {
   var h = new Date().getHours();
   $('#h-greet').textContent = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   $('#h-date').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   var s = ST.stats; if (!s) return;
-  if (!s.owner) {
-    $('#home-sec').textContent = 'My day';
-    $('#home-stats').innerHTML =
-      stat('My sales today', money(s.todaySales), s.todayCount + ' sale' + (s.todayCount === 1 ? '' : 's'), true) +
-      stat('Money I received', money(s.inToday), 'Cash ' + money(s.inCash).replace('GH₵ ', '') + ' · MoMo ' + money(s.inMomo).replace('GH₵ ', '')) +
-      stat('My sales this month', money(s.monthSales), '') +
-      stat('My customers owing', money(s.owingSales), s.owingCount + ' receipt' + (s.owingCount === 1 ? '' : 's')) +
-      stat('Estimates waiting', String(s.openEst), 'draft or sent') + stat('Active jobs', String(s.activeJobs), 'accepted or in progress');
-  } else
-  $('#home-stats').innerHTML =
-    stat('Sales today', money(s.todaySales), s.todayCount + ' sale' + (s.todayCount === 1 ? '' : 's'), true) +
-    stat('Money in today', money(s.inToday), 'Cash ' + money(s.inCash).replace('GH₵ ', '') + ' · MoMo ' + money(s.inMomo).replace('GH₵ ', '') + (s.inBank ? ' · Bank ' + money(s.inBank).replace('GH₵ ', '') : '')) +
-    stat('Sales this month', money(s.monthSales), '') +
+  if (!$('#home-pick').innerHTML) renderHomePick();
+  renderHomePeriod();
+  $('#home-stats').innerHTML = s.owner ?
     stat('Customers owing', money(s.owingSales), s.owingCount + ' receipt' + (s.owingCount === 1 ? '' : 's')) +
     stat('Owed on jobs', money(s.owingJobs), s.jobsCount + ' job' + (s.jobsCount === 1 ? '' : 's')) +
-    stat('Estimates waiting', String(s.openEst), money(s.openEstValue) + ' quoted') +
-    stat('Expenses this month', money(s.monthExp), 'today ' + money(s.todayExp).replace('GH₵ ', '')) +
-    stat('Profit this month', money(s.monthProfit), 'money in ' + money(s.monthIn).replace('GH₵ ', '') + ' − expenses', true);
+    stat('Active jobs', String(s.activeJobs), 'accepted or in progress') +
+    stat('Estimates waiting', String(s.openEst), money(s.openEstValue) + ' quoted')
+    : stat('My customers owing', money(s.owingSales), s.owingCount + ' receipt' + (s.owingCount === 1 ? '' : 's')) +
+    stat('Active jobs', String(s.activeJobs), 'accepted or in progress');
   $('#home-sales').innerHTML = s.recentSales.length ? s.recentSales.map(saleItem).join('') : '<div class="empty">No sales yet. Tap <b>New sale</b> to start.</div>';
   $('#home-est').innerHTML = s.recentEst.length ? s.recentEst.map(estItem).join('') : '<div class="empty">No estimates yet.</div>';
 }
@@ -1505,6 +1549,9 @@ document.addEventListener('click', function (ev) {
     case 'go-owing': go('sales'); showSaleTab('owing'); break;
     case 'logout': logout(); break;
     case 'rep-year': loadReport(+d.y); break;
+    case 'hp-mode': ST.homeMode = d.m; loadHomePeriod(); break;
+    case 'hp-step': homeStep(+d.d); break;
+    case 'hp-full': ST.repMode = ST.homeMode; ST.repDay = ST.homeDay; ST.repMonth = ST.homeMonth; go('rep'); break;
     case 'cli-f': ST.cliFilter = d.f; renderClients(); break;
     case 'cli-open': busy(api('apiClient', d.k), 'Opening…').then(openClient).catch(function () { }); break;
     case 'cli-of': (ST.clients ? Promise.resolve(ST.clients) : busy(api('apiClients'), 'Opening…').then(function (l) { ST.clients = l; return l; })).then(function (l) {
