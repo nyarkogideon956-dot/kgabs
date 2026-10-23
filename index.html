@@ -196,6 +196,11 @@ table.lines td.r{text-align:right;white-space:nowrap;padding-left:8px}
 .search{position:relative;margin-bottom:10px}
 .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--slate)}
 .search .in{padding-left:36px}
+/* v7 */
+.ezcard{background:linear-gradient(120deg,#EAF4FA,#fff);border:1.5px solid #CFE3EF}
+.ezline{font-size:13px;color:var(--deep);background:var(--pale);border-radius:9px;padding:8px 10px;margin-top:4px;line-height:1.45}
+.chkline{display:flex;gap:8px;align-items:center;font-size:14px;margin-top:4px}
+.chkline input{width:20px;height:20px;accent-color:var(--deep)}
 /* v6 */
 .stats.three .stat{padding:10px 8px}
 .stats.three .v{font-size:17px;white-space:nowrap}
@@ -674,7 +679,7 @@ function newEst() {
   return { no: '', date: today(), client: '', phone: '', location: '', job: '', matBy: 'K-GABS', materials: [], transport: '',
     labour: (ST.labour || []).slice(0, 4).map(function (l) { return { desc: l.desc, unit: l.unit, qty: '', rate: l.rate || '' }; }),
     discount: '', problemDays: ST.s.problemDays || 3, warranty: ST.s.warranty || 6, preparedBy: (ST.user && ST.user.name) || ST.staff[0] || '', status: 'Draft', notes: '',
-    useTax: false, taxRate: ST.s.taxRate || '', customNo: '', title: '', planMode: 'std', plan: [] };
+    useTax: false, taxRate: ST.s.taxRate || '', customNo: '', title: '', planMode: 'std', plan: [], rooms: null };
 }
 function saveDraft() { if (ST.est && !ST.est.no) store('kg_est_draft', JSON.stringify(ST.est)); }
 function loadDraft() {
@@ -690,6 +695,7 @@ function fixEst(d) {
   if (!Array.isArray(d.plan)) d.plan = [];
   if (!Array.isArray(d.materials)) d.materials = [];
   if (!Array.isArray(d.labour)) d.labour = [];
+  if (d.rooms && !Array.isArray(d.rooms.list)) d.rooms = null;
   return d;
 }
 function estCalc(e) {
@@ -719,6 +725,9 @@ function renderEstForm() {
     fld('Job description', '<textarea class="in" data-ef="job" placeholder="e.g. Plasterboard ceiling, living room & 2 bedrooms">' + esc(e.job) + '</textarea>') +
     '<div class="row2">' + fld('Date', '<input class="in" type="date" data-ef="date" value="' + esc(e.date) + '">') + fld('Prepared by', '<select class="in" data-ef="preparedBy">' + staffOpts(e.preparedBy) + '</select>') + '</div>' +
     '<label class="f"><span>Who buys the materials?</span><div class="tog"><button data-act="matby" data-v="K-GABS" class="' + (e.matBy !== 'Client' ? 'on' : '') + '">We buy (K-GABS)</button><button data-act="matby" data-v="Client" class="' + (e.matBy === 'Client' ? 'on' : '') + '">Client buys</button></div></label></div>' +
+    '<div class="card ezcard"><div style="display:flex;gap:12px;align-items:center"><div style="flex:1"><b class="cond" style="font-size:18px;color:var(--deep)">CEILING ESTIMATOR</b><div class="muted">' +
+      (e.rooms && e.rooms.list && e.rooms.list.length ? (function () { var r = estimateCeilings(e.rooms.list, e.rooms.waste); return e.rooms.list.length + ' room' + (e.rooms.list.length === 1 ? '' : 's') + ' · ' + r1(r.pbArea + r.acArea) + ' m² · walls ' + r.walls + ' m'; })() : 'Type each room\'s length and width, get all the materials') +
+      '</div></div><button class="btn p" data-act="ez-open">' + (e.rooms && e.rooms.list && e.rooms.list.length ? 'Edit rooms' : 'Measure rooms') + '</button></div></div>' +
     '<div class="card"><h3>Materials <span class="money" id="mat-tot"></span></h3><div id="mat-lines"></div>' +
     '<div class="btn2"><button class="btn s" data-act="pick" data-k="mat">+ Add material</button><button class="btn s" data-act="add-head" data-k="mat">+ Heading</button></div>' +
     '<div style="margin-top:12px">' + fld('Transport (GH₵)', '<input class="in" inputmode="decimal" data-ef="transport" value="' + esc(e.transport) + '" placeholder="0">') + '</div></div>' +
@@ -867,6 +876,7 @@ function openEst(est) {
     '<div class="kv big"><span>Balance</span><span class="money">' + money(c.balance) + '</span></div>' +
     '<div class="sumbox sched"><b>Payment plan</b>' + sch.map(function (s) { return kv(s.pct + '% · ' + s.label, money(s.amount)); }).join('') + '</div>' +
     (c.payments.length ? '<div class="sec" style="margin-top:14px">Payments received</div>' + c.payments.map(payItem).join('') : '') + '</div>' +
+    roomsCard(c.rooms) +
     (c.materialsList.length ? '<div class="card"><h3>Materials <span class="money">' + money(c.materials) + '</span></h3>' + linesTable(c.materialsList) + (c.transport ? kv('Transport', money(c.transport)) : '') + '</div>' : '') +
     (c.labourList.length ? '<div class="card"><h3>Labour <span class="money">' + money(c.labour) + '</span></h3>' + linesTable(c.labourList) + '</div>' : '') +
     (c.discount ? '<div class="card">' + kv('Discount', '- ' + money(c.discount), 'b') + '</div>' : '') +
@@ -890,6 +900,7 @@ function estToForm(est, keepNo) {
     materials: est.materialsList.map(function (x) { return x.heading ? { desc: x.desc, heading: true } : { desc: x.desc, unit: x.unit, qty: x.qty, rate: x.rate }; }), transport: est.transport || '',
     labour: est.labourList.map(function (x) { return x.heading ? { desc: x.desc, heading: true } : { desc: x.desc, unit: x.unit, qty: x.qty, rate: x.rate }; }),
     title: est.title || '', planMode: est.plan && est.plan.length ? 'own' : 'std', plan: (est.plan || []).map(function (p) { return { label: p.label, amount: p.amount }; }),
+    rooms: est.rooms ? JSON.parse(JSON.stringify(est.rooms)) : null,
     discount: est.discount || '', problemDays: est.problemDays, warranty: est.warranty, preparedBy: est.preparedBy, status: keepNo ? est.status : 'Draft', notes: est.notes,
     useTax: est.tax > 0, taxRate: est.taxRate || ST.s.taxRate || '', customNo: ''
   };
@@ -1254,6 +1265,278 @@ function renderMoreExtra() {
 window.addEventListener('online', function () { syncQueue(); });
 window.addEventListener('offline', function () { toast('You are offline. New sales and expenses will be kept on this phone.'); });
 
+/* ============ CEILING ESTIMATOR (room by room) ============ */
+var EST_RULES_DEFAULT = {
+  pb_sheet_item: 'Plasterboard 12.5mm sheet', pb_sheet_len: 2.4, pb_sheet_wid: 1.2, pb_waste: 5,
+  pb_main_item: 'Main channel 3m', pb_main_len: 3, pb_main_space: 1.2,
+  pb_omega_item: 'Omega', pb_omega_len: 3, pb_omega_space: 0.6,
+  pb_angle_item: 'Wall angle / U-track 3m', pb_angle_len: 3,
+  pb_hanger_item: 'Hanger clip / connector', pb_hanger_space: 1.2,
+  wire_item: 'Hanger wire', wire_per_hanger: 0.5,
+  pb_screw_item: 'Drywall screws 25mm (box)', pb_screws_per_sheet: 30, pb_screws_per_box: 1000,
+  pb_tape_item: 'Joint tape (roll)', pb_tape_per_m2: 1.5, pb_tape_roll: 90,
+  pb_comp_item: 'Jointing compound (bag)', pb_comp_per_m2: 0.97, pb_comp_bag: 25,
+  fix_item: 'Wall fixings (box)', fix_per_m: 2, fix_per_box: 100,
+  add_cornice: 'No', cornice_item: 'Plaster cornice', cornice_len: 2.4,
+  ac_tile_item: 'Acoustic ceiling tile 600x600', ac_tile_len: 0.6, ac_tile_wid: 0.6, ac_waste: 5,
+  ac_main_item: 'Main T-grid 3.6m', ac_main_len: 3.6, ac_main_space: 1.2,
+  ac_ct12_item: 'Cross T 1.2m', ac_ct06_item: 'Cross T 0.6m',
+  ac_angle_item: 'Wall angle for T-grid 3m', ac_angle_len: 3, ac_hanger_space: 1.2,
+  metal_waste: 0, add_labour: 'Yes',
+  lab_pb: 'Structure works, Plasterboard skimming', lab_ac: 'Structure works'
+};
+function estRules() {
+  var r = {}, src = (typeof ST !== 'undefined' && ST.s && ST.s.estRules) || {};
+  Object.keys(EST_RULES_DEFAULT).forEach(function (k) {
+    var d = EST_RULES_DEFAULT[k], v = src[k];
+    if (v === undefined || v === null || v === '') r[k] = d;
+    else r[k] = typeof d === 'number' ? (isFinite(parseFloat(v)) ? parseFloat(v) : d) : String(v).trim();
+  });
+  return r;
+}
+function roomGeom(rm) {
+  var L = Math.max(n(rm.L), n(rm.W)), W = Math.min(n(rm.L), n(rm.W)), area, walls, fill = 1;
+  if (rm.shape === 'custom') {
+    area = n(rm.area); walls = n(rm.walls); L = W = Math.sqrt(Math.max(area, 0));
+    if (!walls && area) walls = 4 * L;
+  } else if (rm.shape === 'L') {
+    var cut = Math.min(n(rm.cutL) * n(rm.cutW), L * W);
+    area = L * W - cut; walls = 2 * (L + W); fill = L * W ? area / (L * W) : 1;
+  } else { area = L * W; walls = 2 * (L + W); }
+  return { L: L, W: W, area: Math.max(area, 0), walls: Math.max(walls, 0), fill: fill };
+}
+/* rooms: [{name,type:'PB'|'AC',L,W,shape,cutL,cutW,area,walls}], waste: {pb, ac} in % */
+function estimateCeilings(rooms, waste, R) {
+  R = R || estRules(); waste = waste || {};
+  var wPB = (waste.pb === '' || waste.pb === undefined ? R.pb_waste : n(waste.pb)) / 100;
+  var wAC = (waste.ac === '' || waste.ac === undefined ? R.ac_waste : n(waste.ac)) / 100;
+  var wM = n(R.metal_waste) / 100, ceil = Math.ceil;
+  var out = { rooms: [], pbArea: 0, acArea: 0, walls: 0, lines: [], labour: [] };
+  var t = { pbMain: 0, pbOmega: 0, pbAngle: 0, pbHangers: 0, pbWalls: 0, acMain: 0, acAngle: 0, acHangers: 0, cornice: 0, corniceM: 0, corniceRooms: 0 };
+  (rooms || []).forEach(function (rm) {
+    var g = roomGeom(rm); if (!g.area) return;
+    var b = { name: rm.name || 'Room', type: rm.type === 'AC' ? 'AC' : 'PB', L: g.L, W: g.W, area: g.area, walls: g.walls, shape: rm.shape || 'rect' };
+    if (b.type === 'PB') {
+      var mainLines = Math.max(1, ceil(g.W / R.pb_main_space));
+      var omegaLines = ceil(g.L / R.pb_omega_space) + 1;
+      b.main = mainLines * g.L * g.fill; b.omega = omegaLines * g.W * g.fill;
+      b.angle = ceil(g.walls / R.pb_angle_len);
+      b.hangers = ceil(mainLines * (ceil(g.L / R.pb_hanger_space) + 1) * g.fill);
+      b.sheets = ceil(g.area / (R.pb_sheet_len * R.pb_sheet_wid) * (1 + wPB));
+      out.pbArea += g.area; t.pbMain += b.main; t.pbOmega += b.omega; t.pbAngle += b.angle; t.pbHangers += b.hangers; t.pbWalls += g.walls;
+    } else {
+      var acLines = Math.max(1, ceil(g.W / R.ac_main_space));
+      b.main = acLines * g.L * g.fill;
+      b.angle = ceil(g.walls / R.ac_angle_len);
+      b.hangers = ceil(acLines * (ceil(g.L / R.ac_hanger_space) + 1) * g.fill);
+      b.tiles = ceil(g.area / (R.ac_tile_len * R.ac_tile_wid) * (1 + wAC));
+      out.acArea += g.area; t.acMain += b.main; t.acAngle += b.angle; t.acHangers += b.hangers;
+    }
+    if (rm.cornice) { b.cornice = ceil(g.walls / (n(R.cornice_len) || 2.4)); t.cornice += b.cornice; t.corniceM += g.walls; t.corniceRooms++; }
+    out.walls += g.walls; out.rooms.push(b);
+  });
+  var add = function (item, qty, why) { qty = Math.ceil(qty - 1e-9); if (item && qty > 0) out.lines.push({ item: item, qty: qty, why: why }); };
+  if (out.pbArea) {
+    var sheets = ceil(out.pbArea / (R.pb_sheet_len * R.pb_sheet_wid) * (1 + wPB));
+    add(R.pb_sheet_item, sheets, r1(out.pbArea) + ' m² + ' + Math.round(wPB * 100) + '% waste');
+    add(R.pb_main_item, t.pbMain * (1 + wM) / R.pb_main_len, r1(t.pbMain) + ' m of runs');
+    add(R.pb_omega_item, t.pbOmega * (1 + wM) / R.pb_omega_len, r1(t.pbOmega) + ' m of runs');
+    add(R.pb_angle_item, t.pbAngle, 'room by room: ' + r1(t.pbWalls) + ' m of walls');
+    add(R.pb_hanger_item, t.pbHangers, 'every ' + R.pb_hanger_space + ' m on main channels');
+    add(R.pb_screw_item, sheets * R.pb_screws_per_sheet / R.pb_screws_per_box, sheets * R.pb_screws_per_sheet + ' screws');
+    add(R.pb_tape_item, out.pbArea * R.pb_tape_per_m2 / R.pb_tape_roll, r1(out.pbArea * R.pb_tape_per_m2) + ' m of joints');
+    add(R.pb_comp_item, out.pbArea * R.pb_comp_per_m2 / R.pb_comp_bag, r1(out.pbArea * R.pb_comp_per_m2) + ' kg');
+  }
+  if (out.acArea) {
+    var cell = R.ac_main_space * R.ac_tile_wid;
+    add(R.ac_tile_item, out.acArea / (R.ac_tile_len * R.ac_tile_wid) * (1 + wAC), r1(out.acArea) + ' m² + ' + Math.round(wAC * 100) + '% waste');
+    add(R.ac_main_item, t.acMain * (1 + wM) / R.ac_main_len, r1(t.acMain) + ' m of runs');
+    add(R.ac_ct12_item, out.acArea / cell * (1 + wM), '1 per ' + (Math.round(cell * 100) / 100) + ' m²');
+    add(R.ac_ct06_item, out.acArea / cell * (1 + wM), '1 per ' + (Math.round(cell * 100) / 100) + ' m²');
+    add(R.ac_angle_item, t.acAngle, 'room by room');
+  }
+  if (t.cornice) add(R.cornice_item, t.cornice, 'room by room: ' + r1(t.corniceM) + ' m of walls in ' + t.corniceRooms + ' room' + (t.corniceRooms === 1 ? '' : 's') + ', ' + (n(R.cornice_len) || 2.4) + ' m lengths');
+  var hangers = t.pbHangers + t.acHangers;
+  if (hangers && n(R.wire_per_hanger) > 0) add(R.wire_item, hangers * R.wire_per_hanger, hangers + ' hangers × ' + R.wire_per_hanger + ' m');
+  if (out.walls && n(R.fix_per_m) > 0) add(R.fix_item, out.walls * R.fix_per_m / R.fix_per_box, Math.ceil(out.walls * R.fix_per_m) + ' fixings');
+  // merge duplicates (e.g. same item used for both types)
+  var merged = {}; out.lines.forEach(function (l) { if (merged[l.item]) { merged[l.item].qty += l.qty; merged[l.item].why += '; ' + l.why; } else merged[l.item] = l; });
+  out.lines = Object.keys(merged).map(function (k) { return merged[k]; });
+  if (String(R.add_labour).toLowerCase() !== 'no') {
+    var lab = {};
+    var put = function (names, area) { String(names || '').split(',').map(function (x) { return x.trim(); }).filter(String).forEach(function (nm) { lab[nm] = (lab[nm] || 0) + area; }); };
+    if (out.pbArea) put(R.lab_pb, out.pbArea); if (out.acArea) put(R.lab_ac, out.acArea);
+    out.labour = Object.keys(lab).map(function (k) { return { desc: k, qty: r1(lab[k]) }; });
+  }
+  out.pbArea = r1(out.pbArea); out.acArea = r1(out.acArea); out.walls = r1(out.walls);
+  return out;
+}
+function r1(v) { return Math.round(n(v) * 10) / 10; }
+function estimatorItemNames(R) {
+  R = R || estRules();
+  return Object.keys(R).filter(function (k) { return /_item$/.test(k); }).map(function (k) { return R[k]; });
+}
+
+/* ---- estimator screen ---- */
+function estRoomsDefault() { return { list: [], waste: { pb: '', ac: '' }, print: false }; }
+function openEstimator() {
+  var e = ST.est; if (!e.rooms || !Array.isArray(e.rooms.list)) e.rooms = estRoomsDefault();
+  if (!e.rooms.list.length) e.rooms.list.push({ name: 'Room 1', type: 'PB', shape: 'rect', L: '', W: '' });
+  ST.page = { kind: 'estimator' };
+  var R = estRules();
+  openPage('Ceiling estimator',
+    '<div class="card"><div class="muted">Type the <b>length</b> and <b>width</b> of each room. Each room is worked out on its own (so the wall angle is right), then everything is added together.</div></div>' +
+    '<button class="btn p w" data-act="pz-open" style="margin-bottom:12px">Paste many rooms at once</button>' + roomNamesDatalist() +
+    '<div id="ez-rooms"></div>' +
+    '<div class="btn2" style="margin-bottom:12px"><button class="btn s" data-act="ez-add" data-t="PB">+ Plasterboard room</button><button class="btn s" data-act="ez-add" data-t="AC">+ Acoustic room</button></div>' +
+    '<div class="card"><h3>Waste</h3><div class="row2">' +
+    fld('Board waste %', '<input class="in" inputmode="decimal" id="ez-wpb" value="' + esc(e.rooms.waste.pb) + '" placeholder="' + R.pb_waste + ' (normal)">') +
+    fld('Tile waste %', '<input class="in" inputmode="decimal" id="ez-wac" value="' + esc(e.rooms.waste.ac) + '" placeholder="' + R.ac_waste + ' (normal)">') + '</div>' +
+    '<label class="chkline"><input type="checkbox" id="ez-print"' + (e.rooms.print ? ' checked' : '') + '> Show the room sizes on the estimate PDF</label></div>' +
+    '<div id="ez-result"></div>' +
+    '<button class="btn p w" data-act="ez-put" style="margin:6px 0 30px">Put into estimate</button>');
+  renderEzRooms(); renderEzResult();
+}
+function renderEzRooms() {
+  var list = ST.est.rooms.list;
+  $('#ez-rooms').innerHTML = list.map(function (rm, i) {
+    var sh = rm.shape || 'rect';
+    return '<div class="card ezroom"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">' +
+      '<input class="in" list="ez-names" data-rm="' + i + '" data-f="name" value="' + esc(rm.name) + '" placeholder="Room name (tap to pick)" style="flex:1;font-weight:700" autocomplete="off">' +
+      '<button class="del" data-act="ez-del" data-i="' + i + '" aria-label="Remove room">×</button></div>' +
+      '<div class="tog" style="margin-bottom:8px"><button data-act="ez-type" data-i="' + i + '" data-v="PB" class="' + (rm.type !== 'AC' ? 'on' : '') + '">Plasterboard</button><button data-act="ez-type" data-i="' + i + '" data-v="AC" class="' + (rm.type === 'AC' ? 'on' : '') + '">Acoustic</button></div>' +
+      '<div class="chips" style="margin-bottom:6px">' + [['rect', 'Rectangle'], ['L', 'L-shape'], ['custom', 'Other shape']].map(function (s) { return '<button class="chip' + (sh === s[0] ? ' on' : '') + '" data-act="ez-shape" data-i="' + i + '" data-v="' + s[0] + '">' + s[1] + '</button>'; }).join('') + '</div>' +
+      (sh === 'custom' ?
+        '<div class="row2">' + fld('Area (m²)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="area" value="' + esc(rm.area) + '">') + fld('Total wall length (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="walls" value="' + esc(rm.walls) + '">') + '</div>'
+        : '<div class="row2">' + fld('Length (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="L" value="' + esc(rm.L) + '" placeholder="e.g. 6">') + fld('Width (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="W" value="' + esc(rm.W) + '" placeholder="e.g. 4">') + '</div>' +
+          (sh === 'L' ? '<div class="muted" style="margin:-4px 0 6px">Length and width of the whole outside, then the corner that is cut out:</div><div class="row2">' + fld('Cut-out length (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="cutL" value="' + esc(rm.cutL) + '">') + fld('Cut-out width (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="cutW" value="' + esc(rm.cutW) + '">') + '</div>' : '')) +
+      '<label class="chkline" style="margin:2px 0 6px"><input type="checkbox" data-rmc="' + i + '"' + (rm.cornice ? ' checked' : '') + '> Cornice in this room</label>' +
+      '<div class="ezline" id="ez-line-' + i + '"></div></div>';
+  }).join('');
+}
+function renderEzResult() {
+  var e = ST.est, r = estimateCeilings(e.rooms.list, e.rooms.waste), R = estRules();
+  ST.ezLast = r;
+  // per-room lines (match by order of rooms with area)
+  var k = 0;
+  e.rooms.list.forEach(function (rm, i) {
+    var el = $('#ez-line-' + i); if (!el) return;
+    var g = roomGeom(rm);
+    if (!g.area) { el.innerHTML = '<span class="muted">Type the sizes to see this room.</span>'; return; }
+    var b = r.rooms[k++];
+    el.innerHTML = '<b>' + r1(b.area) + ' m²</b> · walls ' + r1(b.walls) + ' m · ' +
+      (b.type === 'PB' ? b.sheets + ' boards · ' + b.angle + ' wall angle · main ' + r1(b.main) + ' m · Omega ' + r1(b.omega) + ' m'
+        : b.tiles + ' tiles · ' + b.angle + ' wall angle · main tee ' + r1(b.main) + ' m') + (b.cornice ? ' · <b>cornice ' + b.cornice + '</b>' : '');
+  });
+  var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
+  var missing = r.lines.filter(function (l) { return !prods[l.item]; });
+  $('#ez-result').innerHTML = !r.lines.length ? '<div class="card"><div class="empty" style="padding:8px">Add at least one room with its sizes.</div></div>' :
+    '<div class="card"><h3>Materials for all rooms</h3>' +
+    '<div class="stats" style="margin-bottom:10px;grid-template-columns:1fr 1fr 1fr">' + stat('Plasterboard', r.pbArea + ' m²', '') + stat('Acoustic', r.acArea + ' m²', '') + stat('Walls', r.walls + ' m', '') + '</div>' +
+    '<table class="lines">' + r.lines.map(function (l) {
+      var p = prods[l.item];
+      return '<tr><td>' + esc(l.item) + '<div class="muted">' + esc(l.why) + (p ? '' : ' · <b style="color:var(--bad)">not in your Products list</b>') + '</div></td><td class="r"><b>' + l.qty + '</b> ' + esc(p ? p.unit : '') + '</td></tr>';
+    }).join('') + '</table>' +
+    (r.labour.length ? '<div class="sec" style="margin-top:12px">Labour</div><table class="lines">' + r.labour.map(function (l) { return '<tr><td>' + esc(l.desc) + '</td><td class="r"><b>' + l.qty + '</b> m²</td></tr>'; }).join('') + '</table>' : '') +
+    (missing.length ? '<div class="sumbox" style="background:var(--warnbg);margin-top:10px;font-size:13px">Some names don\'t match your <b>Products</b> tab, so they will go in with price 0. Fix the name in the <b>Estimator Rules</b> tab or add the product.</div>' : '') +
+    '</div>';
+}
+function putEstimator() {
+  var e = ST.est, r = ST.ezLast || estimateCeilings(e.rooms.list, e.rooms.waste), R = estRules();
+  if (!r.lines.length) { toast('Type at least one room size first', true); return; }
+  var names = estimatorItemNames(R);
+  var labNames = (R.lab_pb + ',' + R.lab_ac).split(',').map(function (x) { return x.trim(); }).filter(String);
+  var oldRate = {}; e.materials.concat(e.labour).forEach(function (x) { if (!x.heading && n(x.rate)) oldRate[x.desc] = x.rate; });
+  var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
+  e.materials = e.materials.filter(function (m) { return m.heading || names.indexOf(m.desc) < 0; });
+  r.lines.forEach(function (l) { var p = prods[l.item] || {}; e.materials.push({ desc: l.item, unit: p.unit || '', qty: l.qty, rate: oldRate[l.item] || p.estRate || 0 }); });
+  if (r.labour.length) {
+    e.labour = e.labour.filter(function (x) { return x.heading || labNames.indexOf(x.desc) < 0; });
+    r.labour.forEach(function (l) { var lb = ST.labour.filter(function (q) { return q.desc === l.desc; })[0] || {}; e.labour.push({ desc: l.desc, unit: lb.unit || 'sqm', qty: l.qty, rate: oldRate[l.desc] || lb.rate || '' }); });
+  }
+  if (!e.title) e.title = r.pbArea && r.acArea ? 'Plasterboard & acoustic ceiling' : r.acArea ? 'Acoustic ceiling' : 'Plasterboard ceiling';
+  closePage(); renderEstForm(); saveDraft();
+  toast(r.lines.length + ' materials' + (r.labour.length ? ' and labour' : '') + ' put into the estimate');
+}
+function roomsCard(rooms) {
+  if (!rooms || !rooms.list || !rooms.list.length) return '';
+  var r = estimateCeilings(rooms.list, rooms.waste);
+  return '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Rooms measured <span class="muted" style="text-transform:none;font-family:inherit;font-weight:500">only you see this' + (rooms.print ? ' (sizes also on PDF)' : '') + '</span></h3><div class="tscroll"><table class="rep"><thead><tr><th>Room</th><th>Size</th><th>m²</th><th>Walls</th><th>Boards / tiles</th><th>Wall angle</th><th>Cornice</th></tr></thead><tbody>' +
+    r.rooms.map(function (b) { return '<tr><td>' + esc(b.name) + '<div class="muted" style="font-weight:500">' + (b.type === 'AC' ? 'Acoustic' : 'Plasterboard') + '</div></td><td>' + (b.shape === 'custom' ? 'other' : r1(b.L) + ' × ' + r1(b.W) + (b.shape === 'L' ? ' L' : '')) + '</td><td>' + r1(b.area) + '</td><td>' + r1(b.walls) + '</td><td>' + (b.type === 'AC' ? b.tiles : b.sheets) + '</td><td>' + b.angle + '</td><td>' + (b.cornice || '–') + '</td></tr>'; }).join('') +
+    '</tbody><tfoot><tr><td>Total</td><td></td><td>' + r1(r.pbArea + r.acArea) + '</td><td>' + r.walls + '</td><td></td><td></td><td>' + (r.rooms.reduce(function (a, b) { return a + (b.cornice || 0); }, 0) || '–') + '</td></tr></tfoot></table></div></div>';
+}
+
+/* ---- room names + paste many rooms ---- */
+var ROOM_NAMES = ['Room 1', 'Room 2', 'Room 3', 'Room 4', 'Living room', 'Hall', 'Porch', 'Balcony', 'Kitchen', 'Dining', 'Washroom', 'Toilet', 'Bathroom',
+  'Master bedroom', 'Bedroom 1', 'Bedroom 2', 'Bedroom 3', 'Closet', 'Store', 'Corridor', 'Lobby', 'Stairway', 'Office', 'Shop', 'Reception', 'Conference room', 'Garage', 'Veranda', 'Boys quarters'];
+function roomNamesDatalist() { return '<datalist id="ez-names">' + ROOM_NAMES.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>'; }
+/* Reads lines such as:  Hall 6 x 4 | Porch, 2.4, 1.8 | Kitchen 3*2.5 acoustic | 12'6" x 10' Master bedroom | 6 4 */
+function parseRoomLines(text, unit, defType) {
+  var rooms = [], bad = [], k = 0;
+  String(text || '').split(/\r?\n/).forEach(function (raw) {
+    var line = raw.replace(/\t/g, ' ').trim(); if (!line) return;
+    var type = defType, cornice = /\bcornice\b/i.test(line); line = line.replace(/\bcornice\b/ig, ' ');
+    if (/\b(acoustic|acc|ac|t-?grid|tiles?)\b/i.test(line)) type = 'AC';
+    else if (/\b(plasterboard|plaster\s*board|gypsum|pb|pop)\b/i.test(line)) type = 'PB';
+    var nums = [], feet = unit === 'ft', work = line;
+    // one pass: a number, maybe with feet (and inches) or metres after it
+    var re = /(\d+(?:\.\d+)?)\s*(?:('|\u2019|ft\b|feet\b)\s*(?:(\d+(?:\.\d+)?)\s*(?:"|\u201d|''|in\b|inch(?:es)?\b)?(?=\s*(?:$|x\b|X\b|by\b|[*,;\u00d7]|\s[A-Za-z])))?|(m\b|metres?\b|meters?\b))?/gi;
+    work = work.replace(re, function (all, v, ftMark, inch, mUnit) {
+      var val = parseFloat(v), isFt = feet;
+      if (ftMark) { isFt = true; if (inch && parseFloat(inch) < 12) val += parseFloat(inch) / 12; }
+      else if (mUnit) isFt = false;
+      nums.push({ v: val, ft: isFt });
+      return ' \u0000' + String.fromCharCode(65 + Math.min(nums.length - 1, 25)) + ' ';
+    });
+    var pieces = work.split(/\u0000[A-Z]/);
+    var name = pieces[0];
+    if (!name.replace(/[^A-Za-z]/g, '')) name = pieces[pieces.length - 1];
+    // "Room 1 3.5 x 3": extra numbers before the last two belong to the name
+    if (nums.length > 2 && pieces[0].replace(/[^A-Za-z]/g, '')) {
+      name = pieces[0].trim() + ' ' + nums.slice(0, nums.length - 2).map(function (o) { return o.v; }).join(' ');
+      nums = nums.slice(nums.length - 2);
+    }
+    var order = nums;
+    name = name.replace(/\b(acoustic|acc|ac|t-?grid|tiles?|plasterboard|plaster\s*board|gypsum|pb|pop|by|x|metres?|meters?|feet|ft)\b/gi, ' ')
+      .replace(/[,;:=*\u00d7xX\-\u2013\u2014|()]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (order.length < 2) { bad.push(raw.trim()); return; }
+    var toM = function (o) { return Math.round((o.ft ? o.v * 0.3048 : o.v) * 100) / 100; };
+    k++;
+    rooms.push({ name: name || ('Room ' + k), type: type, shape: 'rect', L: toM(order[0]), W: toM(order[1]), fromFeet: order[0].ft || order[1].ft, cornice: cornice });
+  });
+  return { rooms: rooms, bad: bad };
+}
+function openPasteRooms() {
+  ST.paste = ST.paste || { unit: 'm', type: 'PB' };
+  openSheet('<h2>Paste many rooms</h2>' +
+    '<div class="muted" style="margin-bottom:8px">One room per line: <b>name, length, width</b>. You can paste from WhatsApp, notes or Excel. Write <b>acoustic</b> on a line for an acoustic room, and <b>cornice</b> for a room that gets cornice.</div>' +
+    '<label class="f"><span>Sizes are in</span><div class="tog" id="pz-unit">' + [['m', 'Metres'], ['ft', 'Feet']].map(function (u) { return '<button data-act="pz-unit" data-v="' + u[0] + '" class="' + (ST.paste.unit === u[0] ? 'on' : '') + '">' + u[1] + '</button>'; }).join('') + '</div></label>' +
+    '<label class="f"><span>Ceiling type for lines that don\'t say</span><div class="tog" id="pz-type">' + [['PB', 'Plasterboard'], ['AC', 'Acoustic']].map(function (u) { return '<button data-act="pz-type" data-v="' + u[0] + '" class="' + (ST.paste.type === u[0] ? 'on' : '') + '">' + u[1] + '</button>'; }).join('') + '</div></label>' +
+    '<textarea class="in" id="pz-text" style="min-height:170px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px" placeholder="Hall 6 x 4\nRoom 1 3.5 x 3\nRoom 2 3.5 x 3\nPorch, 2.4, 1.8\nKitchen 3 x 2.5\nWashroom 2 x 1.5\nMaster bedroom 4.2 x 3.6\nHall 6 x 4 cornice\nShop 5 x 4 acoustic">' + esc(ST.paste.text || '') + '</textarea>' +
+    '<div id="pz-prev" style="margin-top:10px"></div>' +
+    '<div class="acts"><button class="btn p" data-act="pz-add" data-mode="add">Add these rooms</button><button class="btn s" data-act="pz-add" data-mode="replace">Replace all rooms</button></div>');
+  $('#pz-text').addEventListener('input', function () { ST.paste.text = this.value; pastePreview(); });
+  pastePreview();
+}
+function pastePreview() {
+  var r = parseRoomLines($('#pz-text').value, ST.paste.unit, ST.paste.type), box = $('#pz-prev'); if (!box) return;
+  ST.paste.parsed = r;
+  if (!r.rooms.length && !r.bad.length) { box.innerHTML = '<div class="muted">The rooms you paste will show here.</div>'; return; }
+  var tot = r.rooms.reduce(function (a, x) { return a + x.L * x.W; }, 0);
+  box.innerHTML = '<div class="sumbox"><b>' + r.rooms.length + ' room' + (r.rooms.length === 1 ? '' : 's') + ' found · ' + r1(tot) + ' m²</b>' +
+    '<table class="lines" style="margin-top:6px">' + r.rooms.map(function (x) { return '<tr><td>' + esc(x.name) + '<div class="muted">' + (x.type === 'AC' ? 'Acoustic' : 'Plasterboard') + (x.cornice ? ' · cornice' : '') + (x.fromFeet ? ' · from feet' : '') + '</div></td><td class="r">' + x.L + ' × ' + x.W + ' m<div class="muted">' + r1(x.L * x.W) + ' m²</div></td></tr>'; }).join('') + '</table>' +
+    (r.bad.length ? '<div style="margin-top:8px;color:var(--warn);font-size:13px"><b>Not understood (need two sizes):</b><br>' + r.bad.map(esc).join('<br>') + '</div>' : '') + '</div>';
+}
+function addPastedRooms(mode) {
+  var r = ST.paste && ST.paste.parsed; if (!r || !r.rooms.length) { toast('Paste at least one line with a name and two sizes', true); return; }
+  var list = ST.est.rooms.list;
+  if (mode === 'replace') list.length = 0;
+  else for (var i = list.length - 1; i >= 0; i--) if (!roomGeom(list[i]).area) list.splice(i, 1);   // drop empty rooms
+  r.rooms.forEach(function (x) { list.push({ name: x.name, type: x.type, shape: 'rect', L: x.L, W: x.W, cornice: !!x.cornice }); });
+  ST.paste.text = ''; closeSheet(); renderEzRooms(); renderEzResult(); saveDraft();
+  toast(r.rooms.length + ' room' + (r.rooms.length === 1 ? '' : 's') + ' added');
+}
+
 /* ============ CLIENTS: history, owing, reminders, thank-you ============ */
 ST.clients = null; ST.cliFilter = 'All';
 function loadClients() {
@@ -1549,6 +1832,16 @@ document.addEventListener('click', function (ev) {
     case 'go-owing': go('sales'); showSaleTab('owing'); break;
     case 'logout': logout(); break;
     case 'rep-year': loadReport(+d.y); break;
+    case 'ez-open': openEstimator(); break;
+    case 'ez-add': var lst = ST.est.rooms.list; lst.push({ name: 'Room ' + (lst.length + 1), type: d.t, shape: 'rect', L: '', W: '', cornice: String(estRules().add_cornice).toLowerCase() === 'yes' }); renderEzRooms(); renderEzResult(); var ins = $$('[data-rm="' + (lst.length - 1) + '"][data-f="L"]'); if (ins[0]) ins[0].focus(); break;
+    case 'ez-del': ST.est.rooms.list.splice(+d.i, 1); renderEzRooms(); renderEzResult(); break;
+    case 'ez-type': ST.est.rooms.list[+d.i].type = d.v; renderEzRooms(); renderEzResult(); break;
+    case 'ez-shape': ST.est.rooms.list[+d.i].shape = d.v; renderEzRooms(); renderEzResult(); break;
+    case 'ez-put': putEstimator(); break;
+    case 'pz-open': openPasteRooms(); break;
+    case 'pz-unit': ST.paste.unit = d.v; $$('#pz-unit button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === d.v); }); pastePreview(); break;
+    case 'pz-type': ST.paste.type = d.v; $$('#pz-type button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === d.v); }); pastePreview(); break;
+    case 'pz-add': addPastedRooms(d.mode); break;
     case 'hp-mode': ST.homeMode = d.m; loadHomePeriod(); break;
     case 'hp-step': homeStep(+d.d); break;
     case 'hp-full': ST.repMode = ST.homeMode; ST.repDay = ST.homeDay; ST.repMonth = ST.homeMonth; go('rep'); break;
@@ -1664,7 +1957,7 @@ document.addEventListener('click', function (ev) {
     case 'share': shareSheet(d.kind, d.no, d.kind === 'payment' ? 'Payment receipt ' + d.no : d.kind === 'estimate' ? 'Estimate ' + d.no : 'Receipt ' + d.no); break;
     case 'mkpdf': makePdf(d.kind, d.no); break;
     case 'copy': try { navigator.clipboard.writeText(d.t).then(function () { toast('Link copied'); }); } catch (e) { toast('Could not copy', true); } break;
-    case 'page-close': closePage(); if (ST.view === 'est' && ST.estTab === 'list') loadEstList(); if (ST.view === 'home') go('home'); if (ST.view === 'jobs') renderJobs(); break;
+    case 'page-close': var wasEz = ST.page && ST.page.kind === 'estimator'; closePage(); if (wasEz) renderEstForm(); if (ST.view === 'est' && ST.estTab === 'list') loadEstList(); if (ST.view === 'home') go('home'); if (ST.view === 'jobs') renderJobs(); break;
     case 'sheet-close': closeSheet(); break;
   }
 });
@@ -1674,6 +1967,8 @@ document.addEventListener('input', function (ev) {
   if (d.ef) { ST.est[d.ef] = t.value; if (['transport', 'discount', 'taxRate'].indexOf(d.ef) >= 0) estTotals(); else saveDraft(); return; }
   if (d.lf) { (d.lf === 'mat' ? ST.est.materials : ST.est.labour)[+d.i][d.p] = t.value; if (d.p === 'desc') saveDraft(); else estTotals(); return; }
   if (['pf-amt', 'pf-cash', 'pf-momo', 'pf-bank'].indexOf(t.id) >= 0) { pfLeft(); return; }
+  if (d.rm !== undefined) { ST.est.rooms.list[+d.rm][d.f] = t.value; if (d.f !== 'name') renderEzResult(); saveDraft(); return; }
+  if (t.id === 'ez-wpb' || t.id === 'ez-wac') { ST.est.rooms.waste[t.id === 'ez-wpb' ? 'pb' : 'ac'] = t.value; renderEzResult(); saveDraft(); return; }
   if (d.pl) {
     ST.est.plan[+d.i][d.pl] = t.value; saveDraft();
     if (d.pl === 'amount') { var cc2 = estCalc(ST.est), sum2 = ST.est.plan.reduce(function (a, p) { return a + n(p.amount); }, 0), lf = r2(cc2.payable - sum2), el2 = $('#plan-left');
@@ -1690,6 +1985,8 @@ document.addEventListener('input', function (ev) {
 });
 document.addEventListener('change', function (ev) {
   var t = ev.target;
+  if (t.id === 'ez-print') { ST.est.rooms.print = t.checked; saveDraft(); }
+  if (t.dataset && t.dataset.rmc !== undefined) { ST.est.rooms.list[+t.dataset.rmc].cornice = t.checked; renderEzResult(); saveDraft(); }
   if (t.dataset.ef) { ST.est[t.dataset.ef] = t.value; saveDraft(); }
   if (t.id === 'pf-stage') { ['cash', 'momo', 'bank'].forEach(function (k) { var i = $('#pf-' + k); if (i && n(i.value)) i.value = t.value; }); }
 });
