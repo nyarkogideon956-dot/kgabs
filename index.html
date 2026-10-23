@@ -196,6 +196,9 @@ table.lines td.r{text-align:right;white-space:nowrap;padding-left:8px}
 .search{position:relative;margin-bottom:10px}
 .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--slate)}
 .search .in{padding-left:36px}
+/* v6 */
+.stats.three .stat{padding:10px 8px}
+.stats.three .v{font-size:17px;white-space:nowrap}
 /* v4 */
 .line.hd{background:#fff;border-style:dashed;display:flex;gap:8px;align-items:center;padding:8px 10px}
 .line.hd input{flex:1;border:0;background:none;font-weight:700;color:var(--deep);font-size:15px;outline:none;text-transform:none}
@@ -349,6 +352,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
   <section class="view" id="v-more">
     <div class="card who" id="who"></div>
     <div class="tiles">
+      <button class="tile" data-act="nav" data-v="clients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><div><b>Clients</b><br><span>History, who owes, reminders, reviews</span></div></button>
       <button class="tile" data-act="nav" data-v="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><div><b>Reports</b><br><span>Every month and year</span></div></button>
       <button class="tile" data-act="nav" data-v="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M8 7h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h7"/></svg><div><b>Expenses</b><br><span>Fuel, transport, rent, materials</span></div></button>
       <button class="tile owner-only" data-act="nav" data-v="work"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 11a3 3 0 1 0 0-6M21.5 20a6 6 0 0 0-4-5.6"/></svg><div><b>Workers</b><br><span>Team, wages, subcontractors</span></div></button>
@@ -359,8 +363,16 @@ table.rep td.neg{color:var(--bad);font-weight:700}
     <button class="btn s w" style="margin-top:16px" data-act="logout">Log out</button>
   </section>
 
+  <!-- CLIENTS -->
+  <section class="view" id="v-clients">
+    <div id="cli-sum"></div>
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="in" id="cli-q" placeholder="Search name, phone or place"></div>
+    <div class="chips" id="cli-filter"></div>
+    <div id="cli-items"></div>
+  </section>
+
   <!-- REPORTS -->
-  <section class="view" id="v-rep"><div id="rep-body"></div></section>
+  <section class="view" id="v-rep"><div id="rep-pick"></div><div id="rep-body"></div></section>
 
   <!-- EXPENSES -->
   <section class="view" id="v-exp">
@@ -415,7 +427,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
 window.KG_PWA = true;
 function KG_SERVER() { try { return localStorage.getItem('kg_server') || ''; } catch (e) { return ''; } }
 function KG_SET_SERVER(u) { try { if (u) localStorage.setItem('kg_server', u); else localStorage.removeItem('kg_server'); } catch (e) { } }
-var KG_READS = { apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1 };
+var KG_READS = { apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1, apiPeriod: 1, apiClients: 1, apiClient: 1 };
 function kgCached(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
 function kgKeep(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { } }
 function kgCall(fn, args) {
@@ -550,10 +562,10 @@ function refresh() {
 /* ============ navigation ============ */
 function go(v) {
   ST.view = v;
-  var tab = ['exp', 'work', 'stock', 'rep'].indexOf(v) >= 0 ? 'more' : v;
+  var tab = ['exp', 'work', 'stock', 'rep', 'clients'].indexOf(v) >= 0 ? 'more' : v;
   $$('.view').forEach(function (x) { x.classList.toggle('on', x.id === 'v-' + v); });
   $$('.nav button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === tab); });
-  $('#topSub').textContent = { home: 'Sales & Estimates', est: 'Estimates', sales: 'Sales / POS', stock: 'Stock', jobs: 'Jobs', more: 'More', exp: 'Expenses', work: 'Workers & wages', rep: 'Reports' }[v];
+  $('#topSub').textContent = { home: 'Sales & Estimates', est: 'Estimates', sales: 'Sales / POS', stock: 'Stock', jobs: 'Jobs', more: 'More', exp: 'Expenses', work: 'Workers & wages', rep: 'Reports', clients: 'Clients' }[v];
   window.scrollTo(0, 0);
   updateBar();
   if (v === 'home' && ST.stats) api('apiStats').then(function (s) { ST.stats = s; renderHome(); }).catch(function () { });
@@ -562,6 +574,7 @@ function go(v) {
   if (v === 'work') loadWorkers();
   if (v === 'rep') loadReport();
   if (v === 'more') renderMoreExtra();
+  if (v === 'clients') loadClients();
 }
 function updateBar() {
   var bar = $('#abar');
@@ -814,7 +827,7 @@ function openEst(est) {
     (c.labourList.length ? '<div class="card"><h3>Labour <span class="money">' + money(c.labour) + '</span></h3>' + linesTable(c.labourList) + '</div>' : '') +
     (c.discount ? '<div class="card">' + kv('Discount', '- ' + money(c.discount), 'b') + '</div>' : '') +
     (c.notes ? '<div class="card"><h3>Notes</h3>' + esc(c.notes) + '</div>' : '') +
-    '<button class="btn s w" data-act="est-dup">Copy into a new estimate</button>');
+    '<div class="acts"><button class="btn s" data-act="est-dup">Copy into a new estimate</button><button class="btn s" data-act="cli-of" data-n="' + esc(c.client) + '" data-p="' + esc(c.phone) + '">Client history</button></div>');
   $('#est-status').addEventListener('change', function () {
     var v = this.value;
     busy(api('apiSetEstimateStatus', c.no, v), 'Saving…').then(function (x) { toast('Status: ' + v); openEst(x); }).catch(function () { });
@@ -1001,10 +1014,10 @@ function loadOwing() {
     var ts = r.sales.reduce(function (a, x) { return a + x.balance; }, 0), tj = r.jobs.reduce(function (a, x) { return a + x.balance; }, 0);
     box.innerHTML = '<div class="stats" style="margin-bottom:6px">' + stat('Customers owe', money(ts), r.sales.length + ' receipt(s)', true) + stat('Jobs owe', money(tj), r.jobs.length + ' job(s)') + '</div>' +
       '<div class="sec">Customers (sales)</div>' + (r.sales.length ? r.sales.map(function (x) {
-        return '<div class="item"><div class="mid" data-act="open-sale" data-no="' + esc(x.no) + '"><div class="t">' + esc(x.customer) + '</div><div class="sub">' + esc(x.no) + ' · ' + esc(x.dateNice) + ' · ' + esc(x.phone) + '</div></div><div class="end"><div class="money" style="color:var(--bad)">' + money(x.balance) + '</div><button class="btn p sm" data-act="owe-collect" data-no="' + esc(x.no) + '">Collect</button></div></div>';
+        return '<div class="item"><div class="mid" data-act="open-sale" data-no="' + esc(x.no) + '"><div class="t">' + esc(x.customer) + '</div><div class="sub">' + esc(x.no) + ' · ' + esc(x.dateNice) + ' · ' + esc(x.phone) + '</div></div><div class="end"><div class="money" style="color:var(--bad)">' + money(x.balance) + '</div><button class="btn s sm" data-act="owe-remind" data-n="' + esc(x.customer) + '" data-p="' + esc(x.phone) + '" data-a="' + x.balance + '" data-f="' + esc(x.no) + '">Remind</button> <button class="btn p sm" data-act="owe-collect" data-no="' + esc(x.no) + '">Collect</button></div></div>';
       }).join('') : '<div class="empty">Nobody owes on sales.</div>') +
       '<div class="sec">Jobs (estimates)</div>' + (r.jobs.length ? r.jobs.map(function (x) {
-        return '<div class="item"><div class="mid" data-act="open-est" data-no="' + esc(x.no) + '"><div class="t">' + esc(x.client) + '</div><div class="sub">' + esc(x.no) + ' · ' + esc(x.job) + '</div></div><div class="end"><div class="money" style="color:var(--bad)">' + money(x.balance) + '</div><button class="btn p sm" data-act="owe-jobpay" data-no="' + esc(x.no) + '">Record</button></div></div>';
+        return '<div class="item"><div class="mid" data-act="open-est" data-no="' + esc(x.no) + '"><div class="t">' + esc(x.client) + '</div><div class="sub">' + esc(x.no) + ' · ' + esc(x.job) + '</div></div><div class="end"><div class="money" style="color:var(--bad)">' + money(x.balance) + '</div><button class="btn s sm" data-act="owe-remind" data-n="' + esc(x.client) + '" data-p="' + esc(x.phone) + '" data-a="' + x.balance + '" data-f="' + esc(x.no + (x.title || x.job ? ' (' + (x.title || x.job) + ')' : '')) + '">Remind</button> <button class="btn p sm" data-act="owe-jobpay" data-no="' + esc(x.no) + '">Record</button></div></div>';
       }).join('') : '<div class="empty">No job balances.</div>');
   }).catch(function (e) { box.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
 }
@@ -1049,10 +1062,68 @@ function makePdf(kind, no) {
 
 /* ============ REPORTS (month by month, any year) ============ */
 ST.repYear = new Date().getFullYear();
+ST.repMode = 'Month'; ST.repDay = ''; ST.repMonth = '';
+function renderRepPick() {
+  var m = ST.repMode, now = new Date();
+  if (!ST.repDay) ST.repDay = today();
+  if (!ST.repMonth) ST.repMonth = today().slice(0, 7);
+  $('#rep-pick').innerHTML = '<div class="card"><h3>Pick a day, month or year</h3>' +
+    '<div class="tog" style="margin-bottom:10px">' + ['Day', 'Month', 'Year'].map(function (k) { return '<button data-act="rep-mode" data-m="' + k + '" class="' + (k === m ? 'on' : '') + '">' + k + '</button>'; }).join('') + '</div>' +
+    (m === 'Day' ? '<input class="in" type="date" id="rp-day" value="' + esc(ST.repDay) + '"><div class="quick" style="margin-top:8px"><button class="btn s sm" data-act="rep-q" data-q="today">Today</button><button class="btn s sm" data-act="rep-q" data-q="yday">Yesterday</button><button class="btn s sm" data-act="rep-q" data-q="prev">◀ Day before</button><button class="btn s sm" data-act="rep-q" data-q="next">Day after ▶</button></div>' : '') +
+    (m === 'Month' ? '<input class="in" type="month" id="rp-month" value="' + esc(ST.repMonth) + '"><div class="quick" style="margin-top:8px"><button class="btn s sm" data-act="rep-q" data-q="thism">This month</button><button class="btn s sm" data-act="rep-q" data-q="lastm">Last month</button><button class="btn s sm" data-act="rep-q" data-q="prevm">◀ Month before</button><button class="btn s sm" data-act="rep-q" data-q="nextm">Month after ▶</button></div>' : '') +
+    '</div>';
+  var di = $('#rp-day'); if (di) di.addEventListener('change', function () { if (this.value) { ST.repDay = this.value; loadReport(); } });
+  var mi = $('#rp-month'); if (mi) mi.addEventListener('change', function () { if (/^\d{4}-\d{2}$/.test(this.value)) { ST.repMonth = this.value; loadReport(); } });
+}
+function repQuick(q) {
+  var d;
+  if (q === 'today') ST.repDay = today();
+  if (q === 'yday' || q === 'prev' || q === 'next') { d = q === 'yday' ? new Date() : new Date(ST.repDay + 'T12:00:00'); d.setDate(d.getDate() + (q === 'next' ? 1 : -1)); ST.repDay = iso(d); }
+  if (q === 'thism') ST.repMonth = today().slice(0, 7);
+  if (q === 'lastm' || q === 'prevm' || q === 'nextm') {
+    var p = (q === 'lastm' ? today().slice(0, 7) : ST.repMonth).split('-'); d = new Date(+p[0], +p[1] - 1 + (q === 'nextm' ? 1 : -1), 1);
+    ST.repMonth = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  loadReport();
+}
 function loadReport(y) {
-  if (y) ST.repYear = y;
-  $('#rep-body').innerHTML = '<div class="empty">Loading ' + ST.repYear + '…</div>';
-  api('apiReport', ST.repYear).then(renderReport).catch(function (e) { $('#rep-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  if (y) { ST.repYear = y; ST.repMode = 'Year'; }
+  renderRepPick();
+  if (ST.repMode === 'Year') {
+    $('#rep-body').innerHTML = '<div class="empty">Loading ' + ST.repYear + '…</div>';
+    api('apiReport', ST.repYear).then(renderReport).catch(function (e) { $('#rep-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    return;
+  }
+  var from, to, label;
+  if (ST.repMode === 'Day') { from = to = ST.repDay; label = new Date(ST.repDay + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
+  else { var p = ST.repMonth.split('-'); from = ST.repMonth + '-01'; var last = new Date(+p[0], +p[1], 0); to = iso(last); label = last.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); }
+  $('#rep-body').innerHTML = '<div class="empty">Loading ' + esc(label) + '…</div>';
+  api('apiPeriod', from, to).then(function (r) { renderPeriod(r, label); }).catch(function (e) { $('#rep-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+function renderPeriod(r, label) {
+  var own = r.owner, sm = function (v) { return money(v).replace('GH₵ ', ''); };
+  var cats = Object.keys(r.byCat).sort(function (a, b) { return r.byCat[b] - r.byCat[a]; }), max = cats.length ? r.byCat[cats[0]] : 1;
+  $('#rep-body').innerHTML =
+    '<div class="sec" style="margin-top:4px">' + esc(label) + '</div>' +
+    '<div class="stats" style="margin-bottom:12px">' +
+    (own ? stat('Sales', money(r.sales), r.salesCount + ' receipt' + (r.salesCount === 1 ? '' : 's') + (r.owing ? ' · owing ' + sm(r.owing) : ''), true) +
+      stat('Money in', money(r.moneyIn), 'Cash ' + sm(r.cash) + ' · MoMo ' + sm(r.momo) + (r.bank ? ' · Bank ' + sm(r.bank) : '')) +
+      stat('Expenses', money(r.expenses), cats.length + ' categor' + (cats.length === 1 ? 'y' : 'ies')) +
+      stat('Profit', money(r.profit), 'money in − expenses', true) +
+      stat('Payroll', money(r.wages), r.payroll.length + ' worker' + (r.payroll.length === 1 ? '' : 's') + ' paid') +
+      stat('Estimates', String(r.estCount), money(r.estValue) + ' quoted')
+      : stat('My sales', money(r.sales), r.salesCount + ' receipts', true) + stat('I received', money(r.moneyIn), 'Cash ' + sm(r.cash) + ' · MoMo ' + sm(r.momo))) + '</div>' +
+    (own ? '<div class="card"><h3>Money in by type</h3>' + kv('Paid at sale', money(r.salesIn)) + kv('Debts collected', money(r.debtIn)) + kv('Job / estimate payments', money(r.jobsIn)) +
+      '<div class="kv big"><span>Total</span><span class="money">' + money(r.moneyIn) + '</span></div></div>' : '') +
+    (own && cats.length ? '<div class="card"><h3>Expenses by category</h3>' + cats.map(function (c) { return '<div class="catrow"><span>' + esc(c) + '</span><b>' + money(r.byCat[c]) + '</b><div class="bar"><i style="width:' + Math.round(r.byCat[c] / max * 100) + '%"></i></div></div>'; }).join('') + '</div>' : '') +
+    (own ? '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Payroll</h3>' + (r.payroll.length ?
+      '<div class="tscroll"><table class="rep"><thead><tr><th>Worker</th><th>Days</th><th>Payments</th><th>Paid</th></tr></thead><tbody>' +
+      r.payroll.map(function (q) { return '<tr><td>' + esc(q.name) + '<div class="muted" style="font-weight:500">' + esc(q.type) + (q.rate ? ' · ' + sm(q.rate) + '/day' : '') + '</div></td><td>' + (q.days || '–') + '</td><td>' + q.count + '</td><td class="pos">' + sm(q.amount) + '</td></tr>'; }).join('') +
+      '</tbody><tfoot><tr><td>Total</td><td>' + r.payroll.reduce(function (a, q) { return a + (q.days || 0); }, 0) + '</td><td>' + r.payroll.reduce(function (a, q) { return a + q.count; }, 0) + '</td><td>' + sm(r.wages) + '</td></tr></tfoot></table></div>'
+      : '<div class="empty" style="padding:10px">No wages paid in this period.</div>') + '</div>' : '') +
+    '<div class="sec">Sales (' + r.salesList.length + ')</div>' + (r.salesList.length ? r.salesList.map(saleItem).join('') : '<div class="empty">No sales.</div>') +
+    (own ? '<div class="sec">Expenses (' + r.expList.length + ')</div>' + (r.expList.length ? r.expList.map(expItem).join('') : '<div class="empty">No expenses.</div>') : '');
+  ST.expList = r.expList;
 }
 function renderReport(r) {
   var M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -1076,7 +1147,7 @@ function renderReport(r) {
     '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Month by month <span class="muted" style="text-transform:none;font-family:inherit;font-weight:500">GH₵</span></h3><div class="tscroll"><table class="rep"><thead><tr><th>Month</th>' + heads.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
     r.months.map(function (m, i) {
       var empty = !(m.sales || m.moneyIn || m.expenses || m.estCount);
-      return '<tr class="' + (empty ? 'z' : '') + (r.year === now.getFullYear() && i === now.getMonth() ? ' cur' : '') + '"><td>' + M[i] + '</td>' + cells(m).map(function (c, k) { return '<td class="' + (own && k === 3 ? (m.profit < 0 ? 'neg' : 'pos') : '') + '">' + c + '</td>'; }).join('') + '</tr>';
+      return '<tr data-act="rep-open-month" data-m="' + r.year + '-' + String(i + 1).padStart(2, '0') + '" style="cursor:pointer" class="' + (empty ? 'z' : '') + (r.year === now.getFullYear() && i === now.getMonth() ? ' cur' : '') + '"><td>' + M[i] + ' ›</td>' + cells(m).map(function (c, k) { return '<td class="' + (own && k === 3 ? (m.profit < 0 ? 'neg' : 'pos') : '') + '">' + c + '</td>'; }).join('') + '</tr>';
     }).join('') + '</tbody><tfoot><tr><td>Total</td>' + cells(t).map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr></tfoot></table></div></div>' +
     (own && r.years.length > 1 ? '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Year by year</h3><div class="tscroll"><table class="rep"><thead><tr><th>Year</th><th>Sales</th><th>Money in</th><th>Expenses</th><th>Profit</th></tr></thead><tbody>' +
       r.years.map(function (o) { return '<tr data-act="rep-year" data-y="' + o.year + '" style="cursor:pointer"><td>' + o.year + '</td><td>' + sm(o.sales) + '</td><td>' + sm(o.moneyIn) + '</td><td>' + sm(o.expenses) + '</td><td class="' + (o.profit < 0 ? 'neg' : 'pos') + '">' + sm(o.profit) + '</td></tr>'; }).join('') +
@@ -1139,6 +1210,76 @@ function renderMoreExtra() {
 window.addEventListener('online', function () { syncQueue(); });
 window.addEventListener('offline', function () { toast('You are offline. New sales and expenses will be kept on this phone.'); });
 
+/* ============ CLIENTS: history, owing, reminders, thank-you ============ */
+ST.clients = null; ST.cliFilter = 'All';
+function loadClients() {
+  if (!ST.clients) $('#cli-items').innerHTML = '<div class="empty">Loading clients…</div>';
+  return api('apiClients').then(function (l) { ST.clients = l; renderClients(); return l; }).catch(function (e) { $('#cli-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+function renderClients() {
+  var all = ST.clients || [], f = ST.cliFilter, q = ($('#cli-q').value || '').toLowerCase();
+  var g = { All: all, Owing: all.filter(function (c) { return c.owes > 0; }), Overdue: all.filter(function (c) { return c.overdue > 0; }) };
+  var owes = g.Owing.reduce(function (a, c) { return a + c.owes; }, 0), od = g.Overdue.reduce(function (a, c) { return a + c.overdue; }, 0);
+  $('#cli-sum').innerHTML = '<div class="stats" style="margin-bottom:10px">' + stat('Clients owe you', money(owes), g.Owing.length + ' client' + (g.Owing.length === 1 ? '' : 's'), true) + stat('Overdue', money(od), g.Overdue.length + ' to remind') + '</div>';
+  $('#cli-filter').innerHTML = ['All', 'Owing', 'Overdue'].map(function (k) { return '<button class="chip' + (k === f ? ' on' : '') + '" data-act="cli-f" data-f="' + k + '">' + k + ' (' + g[k].length + ')</button>'; }).join('');
+  var l = g[f].filter(function (c) { return (c.name + ' ' + c.phone + ' ' + c.location).toLowerCase().indexOf(q) >= 0; });
+  $('#cli-items').innerHTML = l.length ? l.map(function (c) {
+    return '<div class="item" data-act="cli-open" data-k="' + esc(c.key) + '"><div class="ic"><b>' + esc((c.name || '?').charAt(0).toUpperCase()) + '</b></div><div class="mid"><div class="t">' + esc(c.name) + '</div><div class="sub">' + esc(c.phone || 'no phone') + ' · ' + c.jobs + ' job' + (c.jobs === 1 ? '' : 's') + ' · ' + c.sales + ' sale' + (c.sales === 1 ? '' : 's') + (c.last ? ' · last ' + esc(c.last) : '') + '</div></div>' +
+      '<div class="end">' + (c.owes > 0 ? '<div class="money" style="color:var(--bad)">' + money(c.owes) + '</div>' + (c.overdue > 0 ? '<span class="badge b-Unpaid">overdue</span>' : '<span class="muted">owes</span>') : '<span class="badge b-Paid">paid up</span>') + '</div></div>';
+  }).join('') : '<div class="empty">No clients here.</div>';
+}
+function openClient(c) {
+  ST.page = { kind: 'client', data: c };
+  var timeline = [];
+  c.estimatesList.forEach(function (e) { timeline.push({ d: e.date, h: '<div class="item" data-act="open-est" data-no="' + esc(e.no) + '"><div class="ic">' + ICON.est + '</div><div class="mid"><div class="t">' + esc(e.title || 'Estimate') + '</div><div class="sub">' + esc(e.no) + ' · ' + esc(e.date) + '</div></div><div class="end"><div class="money">' + money(e.isJob ? e.payable : e.grand) + '</div>' + badge(e.status) + '</div></div>' }); });
+  c.salesList.forEach(function (x) { timeline.push({ d: x.date, h: '<div class="item" data-act="open-sale" data-no="' + esc(x.no) + '"><div class="ic">' + ICON.sale + '</div><div class="mid"><div class="t">' + esc(x.items) + '</div><div class="sub">' + esc(x.no) + ' · ' + esc(x.date) + '</div></div><div class="end"><div class="money">' + money(x.total) + '</div>' + (x.balance > 0 ? badge(x.status) : '') + '</div></div>' }); });
+  openPage(c.name,
+    '<div class="card"><div class="muted">' + esc(c.phone || 'No phone saved') + (c.location ? ' · ' + esc(c.location) : '') + '</div>' +
+    '<div class="stats three" style="margin-top:10px;grid-template-columns:1fr 1fr 1fr">' + stat('Business', money(c.business), '') + stat('Paid', money(c.paid), '') + stat('Owes', money(c.owes), c.overdue > 0 ? money(c.overdue) + ' overdue' : '', c.owes > 0) + '</div>' +
+    (c.overdueItems.length ? '<div class="sumbox" style="margin-top:10px;background:var(--badbg)"><b style="color:var(--bad)">Overdue</b>' + c.overdueItems.map(function (o) { return kv(o.ref + ' · ' + o.why, money(o.amount)); }).join('') + '</div>' : '') + '</div>' +
+    '<div class="acts" style="margin:0 0 12px">' +
+    (c.owes > 0 ? '<button class="btn p" data-act="msg" data-t="reminder">Payment reminder</button><button class="btn s" data-act="share" data-kind="statement" data-no="' + esc(c.key) + '">' + ICON.pdf + 'Send statement</button>' : '') +
+    '<button class="btn g" data-act="msg" data-t="thanks">' + ICON.wa + 'Thank you + review</button><button class="btn s" data-act="msg" data-t="video">Ask for a video</button>' +
+    (c.phone ? '<a class="btn s" href="tel:' + esc(c.phone) + '">Call ' + esc(c.phone) + '</a>' : '') + '</div>' +
+    '<div class="sec">History</div>' + (timeline.length ? timeline.map(function (t) { return t.h; }).join('') : '<div class="empty">Nothing yet.</div>') +
+    (c.paymentsList.length ? '<div class="sec">Payments (' + c.paymentsList.length + ')</div>' + c.paymentsList.map(payItem).join('') : ''));
+}
+function fillMsg(tpl, v) {
+  return String(tpl || '').replace(/\{(\w+)\}/g, function (m, k) { return v[k] !== undefined ? v[k] : m; });
+}
+/* who: {name, phone, amount, for, job} */
+function composeMsg(type, who) {
+  var s = ST.s, msgs = s.msgs || {};
+  var v = { client: who.name || 'Sir/Madam', amount: money(who.amount || 0), 'for': who['for'] || 'your account', business: s.name || 'K-GABS', phone: s.phone || '',
+    momo: s.momo || s.phone || '', review: s.review || '(review link)', job: who.job ? ' for the ' + who.job : '',
+    status: who.overdue ? 'now overdue' : 'now due' };
+  var text = fillMsg(msgs[type] || '', v).replace(/\\n/g, '\n');
+  var title = { reminder: 'Payment reminder', thanks: 'Thank you + review', video: 'Ask for a video' }[type];
+  ST.msgPhone = who.phone || '';
+  openSheet('<h2>' + title + '</h2><div class="muted" style="margin-bottom:8px">To ' + esc(who.name) + (who.phone ? ' · ' + esc(who.phone) : ' · no phone saved') + '. You can change the words before sending.</div>' +
+    (type === 'thanks' && !s.review ? '<div class="sumbox" style="background:var(--warnbg);margin-bottom:10px;font-size:13px">Add your <b>Google review link</b> in the sheet (Settings tab) so clients can rate you with one tap.</div>' : '') +
+    '<textarea class="in" id="msg-t" style="min-height:190px">' + esc(text) + '</textarea>' +
+    '<button class="btn g w" style="margin-top:10px" data-act="msg-wa">' + ICON.wa + 'Send on WhatsApp</button>' +
+    '<div class="acts"><button class="btn s" data-act="msg-sms">Send by SMS</button><button class="btn s" data-act="msg-copy">Copy text</button></div>');
+}
+function msgOpen(kind) {
+  var t = $('#msg-t').value, wa = waNum(ST.msgPhone);
+  var url = kind === 'wa' ? 'https://wa.me/' + wa + '?text=' + encodeURIComponent(t) : 'sms:' + (wa ? '+' + wa : '') + '?body=' + encodeURIComponent(t);
+  var a = document.createElement('a'); a.href = url; if (kind === 'wa') { a.target = '_blank'; a.rel = 'noopener'; }
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function waNum(p) { var d = String(p || '').replace(/\D/g, ''); if (!d) return ''; if (d.indexOf('00') === 0) d = d.slice(2); if (d.charAt(0) === '0') d = '233' + d.slice(1); else if (d.length === 9) d = '233' + d; return d; }
+function clientFor(c, type) {
+  var items = c.overdueItems.length ? c.overdueItems : [];
+  if (!items.length) {
+    c.estimatesList.forEach(function (e) { if (e.isJob && e.balance > 0) items.push({ ref: e.no, what: e.title, amount: e.balance }); });
+    c.salesList.forEach(function (x) { if (x.balance > 0) items.push({ ref: x.no, what: 'goods', amount: x.balance }); });
+  }
+  var amt = items.reduce(function (a, o) { return a + o.amount; }, 0) || c.owes;
+  var lastJob = c.estimatesList.filter(function (e) { return e.isJob; })[0];
+  return { name: c.name, phone: c.phone, amount: amt, overdue: c.overdue > 0, 'for': items.map(function (o) { return o.ref + (o.what ? ' (' + o.what + ')' : ''); }).join(', '), job: lastJob ? lastJob.title : '' };
+}
+
 /* ============ USERS ============ */
 function staffOpts(sel) { var list = ST.user && !ST.user.owner ? [ST.user.name] : ST.staff; return opts(list, list.indexOf(sel) >= 0 ? sel : (ST.user ? ST.user.name : list[0])); }
 function renderWho() {
@@ -1176,7 +1317,9 @@ function openJob(j) {
     '<div class="muted" style="margin-top:6px">' + (j.stage ? 'Stage: <b>' + esc(j.stage) + '</b>' : 'No stage yet') + (j.updated ? ' · updated ' + esc(j.updated) : '') + '</div>' +
     '<hr class="d">' + kv('Start', j.startNice || '—') + kv('Target finish', j.endNice || '—') + kv('Team', j.team || '—') + '</div>' +
     '<div class="acts" style="margin:0 0 12px"><button class="btn p" data-act="job-upd">Update progress</button><button class="btn s" data-act="job-exp">+ Job expense</button>' +
-    '<button class="btn s owner-only" data-act="job-pay">Pay worker</button><button class="btn s" data-act="open-est" data-no="' + esc(j.no) + '">Open estimate</button></div>' +
+    '<button class="btn s owner-only" data-act="job-pay">Pay worker</button><button class="btn s" data-act="open-est" data-no="' + esc(j.no) + '">Open estimate</button>' +
+    '<button class="btn g" data-act="job-msg" data-t="thanks">' + ICON.wa + 'Thank you + review</button><button class="btn s" data-act="job-msg" data-t="video">Ask for a video</button>' +
+    (j.balance > 0 ? '<button class="btn s" data-act="job-msg" data-t="reminder">Payment reminder</button>' : '') + '</div>' +
     (own ? '<div class="card owner-only"><h3>Money on this job</h3>' + kv('Payable by client', money(j.payable), 'b') + kv('Received', money(j.paid)) + kv('Still owed', money(j.balance)) +
       kv('Expenses & wages', '- ' + money(j.expenses)) + '<div class="kv big"><span>Profit so far</span><span class="money" style="color:' + (j.profit < 0 ? 'var(--bad)' : 'var(--ok)') + '">' + money(j.profit) + '</span></div>' +
       '<div class="muted">Received minus expenses linked to this job.</div></div>' : '') +
@@ -1255,7 +1398,7 @@ function ensureJobs() { return ST.jobs ? Promise.resolve(ST.jobs) : busy(api('ap
 function expenseForm(pre) {
   pre = pre || {};
   ensureJobs().then(function (jobs) {
-    var cats = ST.user.owner ? ST.expCats : ST.expCats.filter(function (c) { return c !== 'Wages' && c !== 'Subcontractor'; });
+    var cats = ST.user.owner ? ST.expCats : ST.expCats.filter(function (c) { return ['Wages', 'Subcontractor', 'Apprentice allowance', 'Owner drawings'].indexOf(c) < 0; });
     var jobOpts = '<option value="">— Not for a job —</option>' + jobs.filter(function (j) { return isActiveJob(j) || j.no === pre.job; }).map(function (j) {
       return '<option value="' + esc(j.no) + '"' + (j.no === pre.job ? ' selected' : '') + '>' + esc(j.no + ' · ' + j.client) + '</option>'; }).join('');
     var wk = ST.user.owner && ST.workers.length;
@@ -1281,7 +1424,9 @@ function saveExpense(kind) {
   var x = { amount: n($('#xf-amt').value), desc: $('#xf-desc').value.trim(), method: $('#xf-method').value, date: $('#xf-date').value, job: $('#xf-job').value };
   if (kind === 'wage') {
     var o = $('#xf-worker').selectedOptions[0]; if (!o) { toast('Add a worker first', true); return; }
-    x.worker = o.value; x.cat = o.getAttribute('data-type') === 'Subcontractor' ? 'Subcontractor' : 'Wages';
+    x.worker = o.value; x.days = n($('#xf-days').value) || '';
+    var wt = o.getAttribute('data-type');
+    x.cat = wt === 'Subcontractor' ? 'Subcontractor' : (wt === 'Apprentice' && ST.expCats.indexOf('Apprentice allowance') >= 0 ? 'Apprentice allowance' : 'Wages');
     if (!x.desc && n($('#xf-days').value)) x.desc = n($('#xf-days').value) + ' day(s) × ' + money($('#xf-rate').value);
   } else { x.cat = $('#xf-cat').value; x.worker = $('#xf-w2') ? $('#xf-w2').value : ''; }
   if (x.amount <= 0) { toast('Enter the amount', true); return; }
@@ -1360,6 +1505,21 @@ document.addEventListener('click', function (ev) {
     case 'go-owing': go('sales'); showSaleTab('owing'); break;
     case 'logout': logout(); break;
     case 'rep-year': loadReport(+d.y); break;
+    case 'cli-f': ST.cliFilter = d.f; renderClients(); break;
+    case 'cli-open': busy(api('apiClient', d.k), 'Opening…').then(openClient).catch(function () { }); break;
+    case 'cli-of': (ST.clients ? Promise.resolve(ST.clients) : busy(api('apiClients'), 'Opening…').then(function (l) { ST.clients = l; return l; })).then(function (l) {
+        var key = (String(d.p).replace(/\D/g, '').length >= 9) ? 'p' + String(d.p).replace(/\D/g, '').slice(-9) : 'n' + String(d.n).toLowerCase().replace(/\s+/g, ' ');
+        return busy(api('apiClient', key), 'Opening…');
+      }).then(openClient).catch(function () { }); break;
+    case 'msg': composeMsg(d.t, clientFor(ST.page.data, d.t)); break;
+    case 'job-msg': var jj = ST.page.data; composeMsg(d.t, { name: jj.client, phone: jj.phone, amount: jj.balance || 0, 'for': jj.no + (jj.job ? ' (' + jj.job + ')' : ''), job: jj.job }); break;
+    case 'owe-remind': composeMsg('reminder', { name: d.n, phone: d.p, amount: n(d.a), 'for': d.f, overdue: true }); break;
+    case 'msg-wa': msgOpen('wa'); break;
+    case 'msg-sms': msgOpen('sms'); break;
+    case 'msg-copy': try { navigator.clipboard.writeText($('#msg-t').value).then(function () { toast('Copied'); }); } catch (e) { toast('Could not copy', true); } break;
+    case 'rep-mode': ST.repMode = d.m; loadReport(); break;
+    case 'rep-q': repQuick(d.q); break;
+    case 'rep-open-month': ST.repMode = 'Month'; ST.repMonth = d.m; loadReport(); window.scrollTo(0, 0); break;
     case 'sync': syncQueue(true); break;
     case 'q-del': var qq = qGet(); qq.splice(+d.i, 1); qSet(qq); toast('Removed'); break;
     case 'install': if (window.KG_INSTALL) { window.KG_INSTALL.prompt(); window.KG_INSTALL = null; renderMoreExtra(); } break;
@@ -1478,6 +1638,7 @@ document.addEventListener('input', function (ev) {
   if (t.id === 'pos-q') renderPos();
   if (t.id === 'stk-q') renderStock();
   if (t.id === 'est-q') renderEstList();
+  if (t.id === 'cli-q') renderClients();
   if (t.id === 'pf-stage') { }
 });
 document.addEventListener('change', function (ev) {
