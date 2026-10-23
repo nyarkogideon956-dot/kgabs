@@ -1,5 +1,5 @@
 /* K-GABS offline app: keeps the app on the phone so it opens without internet */
-const CACHE = 'kgabs-v8';
+const CACHE = 'kgabs-v9';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
