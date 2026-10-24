@@ -510,6 +510,41 @@ function api(fn) {
     r[fn].apply(r, [ST.pin].concat(args));
   });
 }
+/* ---- speed: show the saved copy at once, then refresh quietly ---- */
+function ckey(fn, args) { return 'kgc:' + fn + ':' + JSON.stringify(args); }
+function cget(k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+function cset(k, v) {
+  var str; try { str = JSON.stringify(v); } catch (e) { return; }
+  try { localStorage.setItem(k, str); } catch (e) {
+    try { Object.keys(localStorage).filter(function (x) { return x.indexOf('kgc:') === 0 && x !== k; }).forEach(function (x) { localStorage.removeItem(x); }); localStorage.setItem(k, str); } catch (e2) { }
+  }
+}
+/* fast('apiJobs', [], render, showLoading, showError) */
+function fast(fn, args, render, loading, fail) {
+  var k = ckey(fn, args), c = cget(k), shown = c !== null ? JSON.stringify(c) : null;
+  if (c !== null) render(c, true); else if (loading) loading();
+  return api.apply(null, [fn].concat(args)).then(function (d) {
+    cset(k, d);
+    if (JSON.stringify(d) !== shown) render(d, false);
+    return d;
+  }).catch(function (e) { if (c === null && fail) fail(e); if (c === null) throw e; });
+}
+/* open a detail page instantly from the saved copy, refresh it when the fresh one arrives */
+function openFast(fn, key, openFn, isSame) {
+  var k = ckey(fn, [key]), c = cget(k);
+  if (c !== null) {
+    openFn(c);
+    api(fn, key).then(function (d) { cset(k, d); if (ST.page && isSame(ST.page.data) && JSON.stringify(d) !== JSON.stringify(c)) { var y = $('#page').scrollTop; openFn(d); $('#page').scrollTop = y; } }).catch(function () { });
+  } else busy(api(fn, key), 'Opening…').then(function (d) { cset(k, d); openFn(d); }).catch(function () { });
+}
+/* after opening, quietly load the main lists so the first visit is instant */
+function prefetch() {
+  if (isOffline()) return;
+  var jobs = [['apiListEstimates', []], ['apiJobs', []], ['apiOwing', []], ['apiClients', []]];
+  if (ST.user && ST.user.owner) jobs.push(['apiWorkers', []]);
+  var i = 0;
+  (function next() { if (i >= jobs.length) return; var j = jobs[i++]; api.apply(null, [j[0]].concat(j[1])).then(function (d) { cset(ckey(j[0], j[1]), d); }).catch(function () { }).then(function () { setTimeout(next, 300); }); })();
+}
 var busyN = 0;
 function busy(p, label) {
   busyN++; $('#busy-t').textContent = label || ''; $('#busy').classList.add('on');
@@ -555,6 +590,7 @@ function boot() {
     store('kg_init', JSON.stringify(d));
     applyInit(d);
     loadHomePeriod();
+    setTimeout(prefetch, 1500);
     syncQueue();
   }).catch(function () { });
 }
@@ -631,7 +667,7 @@ function loadHomePeriod() {
   var r = homeRange(); renderHomePick();
   if (!ST.homePeriod) $('#home-period').innerHTML = '<div class="empty" style="grid-column:1/-1">Loading…</div>';
   else $('#home-period').style.opacity = '.5';
-  return api('apiPeriod', r.from, r.to).then(function (p) { ST.homePeriod = p; $('#home-period').style.opacity = ''; renderHomePeriod(); })
+  return fast('apiPeriod', [r.from, r.to], function (p) { ST.homePeriod = p; $('#home-period').style.opacity = ''; renderHomePeriod(); })
     .catch(function (e) { $('#home-period').style.opacity = ''; $('#home-period').innerHTML = '<div class="empty" style="grid-column:1/-1">' + esc(isNetErr(e) ? 'No internet: open this day or month once while online to keep a copy.' : e.message) + '</div>'; });
 }
 function renderHomePeriod() {
@@ -850,8 +886,8 @@ function showEstTab(t) {
   if (t === 'list') loadEstList();
 }
 function loadEstList() {
-  $('#est-items').innerHTML = '<div class="empty">Loading…</div>';
-  api('apiListEstimates').then(function (l) { ST.estAll = l; renderEstList(); }).catch(function (e) { $('#est-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  fast('apiListEstimates', [], function (l) { ST.estAll = l; renderEstList(); }, function () { $('#est-items').innerHTML = '<div class="empty">Loading…</div>'; },
+    function (e) { $('#est-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
 }
 function renderEstList() {
   var f = ST.estFilter, q = $('#est-q').value.toLowerCase();
@@ -1054,18 +1090,18 @@ function slRange(r) {
   $('#sl-from').value = iso(a); $('#sl-to').value = iso(b); loadSales();
 }
 function loadSales() {
-  $('#sl-items').innerHTML = '<div class="empty">Loading…</div>'; $('#sl-sum').innerHTML = '';
-  api('apiListSales', $('#sl-from').value, $('#sl-to').value).then(function (r) {
+  fast('apiListSales', [$('#sl-from').value, $('#sl-to').value], function (r) {
     var s = r.sum;
     $('#sl-sum').innerHTML = '<div class="stats" style="margin-bottom:12px">' + stat('Sales', money(s.total), s.count + ' receipt' + (s.count === 1 ? '' : 's'), true) + stat('Still owing', money(s.owing), 'from these sales') +
       stat('Money in', money(s.cash + s.momo + s.bank), 'Cash ' + money(s.cash).replace('GH₵ ', '') + ' · MoMo ' + money(s.momo).replace('GH₵ ', '') + ' · Bank ' + money(s.bank).replace('GH₵ ', '')) +
       stat('Paid at sale', money(s.salesIn), 'Debts collected ' + money(s.debtIn).replace('GH₵ ', '') + ' · Job payments ' + money(s.jobsIn).replace('GH₵ ', '')) + '</div>';
     $('#sl-items').innerHTML = r.list.length ? r.list.map(saleItem).join('') : '<div class="empty">No sales in this period.</div>';
-  }).catch(function (e) { $('#sl-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  }, function () { $('#sl-items').innerHTML = '<div class="empty">Loading…</div>'; $('#sl-sum').innerHTML = ''; },
+    function (e) { $('#sl-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
 }
 function loadOwing() {
-  var box = $('#sale-owing'); box.innerHTML = '<div class="empty">Loading…</div>';
-  api('apiOwing').then(function (r) {
+  var box = $('#sale-owing');
+  fast('apiOwing', [], function (r) {
     var ts = r.sales.reduce(function (a, x) { return a + x.balance; }, 0), tj = r.jobs.reduce(function (a, x) { return a + x.balance; }, 0);
     box.innerHTML = '<div class="stats" style="margin-bottom:6px">' + stat('Customers owe', money(ts), r.sales.length + ' receipt(s)', true) + stat('Jobs owe', money(tj), r.jobs.length + ' job(s)') + '</div>' +
       '<div class="sec">Customers (sales)</div>' + (r.sales.length ? r.sales.map(function (x) {
@@ -1074,7 +1110,7 @@ function loadOwing() {
       '<div class="sec">Jobs (estimates)</div>' + (r.jobs.length ? r.jobs.map(function (x) {
         return '<div class="item"><div class="mid" data-act="open-est" data-no="' + esc(x.no) + '"><div class="t">' + esc(x.client) + '</div><div class="sub">' + esc(x.no) + ' · ' + esc(x.job) + '</div></div><div class="end"><div class="money" style="color:var(--bad)">' + money(x.balance) + '</div><button class="btn s sm" data-act="owe-remind" data-n="' + esc(x.client) + '" data-p="' + esc(x.phone) + '" data-a="' + x.balance + '" data-f="' + esc(x.no + (x.title || x.job ? ' (' + (x.title || x.job) + ')' : '')) + '">Remind</button> <button class="btn p sm" data-act="owe-jobpay" data-no="' + esc(x.no) + '">Record</button></div></div>';
       }).join('') : '<div class="empty">No job balances.</div>');
-  }).catch(function (e) { box.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  }, function () { box.innerHTML = '<div class="empty">Loading…</div>'; }, function (e) { box.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
 }
 
 /* ============ STOCK ============ */
@@ -1099,7 +1135,7 @@ function stockForm(item) {
 /* ============ share / pdf ============ */
 function shareSheet(kind, no, head) {
   openSheet('<h2>' + esc(head || 'Share') + '</h2><div class="muted" style="margin-bottom:12px">' +
-    (kind === 'payment' ? 'Send the client a receipt for this payment.' : kind === 'sale' ? 'Send the customer their receipt.' : 'Send the estimate to the client.') + '</div><div id="sh-b"></div>');
+    (kind === 'payment' ? 'Send the client a receipt for this payment.' : kind === 'sale' ? 'Send the customer their receipt.' : kind === 'period' ? 'All the tables for this period in one PDF. Open it to print or save. A copy is kept in Google Drive, in the Monthly reports folder.' : kind === 'statement' ? 'Send the client their statement.' : 'Send the estimate to the client.') + '</div><div id="sh-b"></div>');
   makePdf(kind, no);
 }
 function makePdf(kind, no) {
@@ -1145,21 +1181,23 @@ function loadReport(y) {
   if (y) { ST.repYear = y; ST.repMode = 'Year'; }
   renderRepPick();
   if (ST.repMode === 'Year') {
-    $('#rep-body').innerHTML = '<div class="empty">Loading ' + ST.repYear + '…</div>';
-    api('apiReport', ST.repYear).then(renderReport).catch(function (e) { $('#rep-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    fast('apiReport', [ST.repYear], renderReport, function () { $('#rep-body').innerHTML = '<div class="empty">Loading ' + ST.repYear + '…</div>'; },
+      function (e) { $('#rep-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
     return;
   }
   var from, to, label;
   if (ST.repMode === 'Day') { from = to = ST.repDay; label = new Date(ST.repDay + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
   else { var p = ST.repMonth.split('-'); from = ST.repMonth + '-01'; var last = new Date(+p[0], +p[1], 0); to = iso(last); label = last.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); }
-  $('#rep-body').innerHTML = '<div class="empty">Loading ' + esc(label) + '…</div>';
-  api('apiPeriod', from, to).then(function (r) { renderPeriod(r, label); }).catch(function (e) { $('#rep-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  ST.repRange = { from: from, to: to, label: label };
+  fast('apiPeriod', [from, to], function (r) { renderPeriod(r, label); }, function () { $('#rep-body').innerHTML = '<div class="empty">Loading ' + esc(label) + '…</div>'; },
+    function (e) { $('#rep-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
 }
 function renderPeriod(r, label) {
   var own = r.owner, sm = function (v) { return money(v).replace('GH₵ ', ''); };
   var cats = Object.keys(r.byCat).sort(function (a, b) { return r.byCat[b] - r.byCat[a]; }), max = cats.length ? r.byCat[cats[0]] : 1;
   $('#rep-body').innerHTML =
-    '<div class="sec" style="margin-top:4px">' + esc(label) + '</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 2px 8px"><div class="sec" style="margin:0">' + esc(label) + '</div>' +
+    (own && ST.repRange ? '<button class="btn p sm" data-act="rep-pdf">' + ICON.pdf + ' PDF report</button>' : '') + '</div>' +
     '<div class="stats" style="margin-bottom:12px">' +
     (own ? stat('Sales', money(r.sales), r.salesCount + ' receipt' + (r.salesCount === 1 ? '' : 's') + (r.owing ? ' · owing ' + sm(r.owing) : ''), true) +
       stat('Money in', money(r.moneyIn), 'Cash ' + sm(r.cash) + ' · MoMo ' + sm(r.momo) + (r.bank ? ' · Bank ' + sm(r.bank) : '')) +
@@ -1189,7 +1227,7 @@ function renderReport(r) {
   var cells = function (m) { return own ? [sm(m.sales), sm(m.moneyIn), sm(m.expenses), sm(m.profit)] : [sm(m.sales), sm(m.moneyIn), String(m.salesCount), sm(m.owing)]; };
   var heads = own ? ['Sales', 'Money in', 'Expenses', 'Profit'] : ['My sales', 'I received', 'Receipts', 'Owing'];
   $('#rep-body').innerHTML =
-    '<div class="chips">' + yearsChips + '</div>' +
+    '<div class="chips">' + yearsChips + '</div>' + (own ? '<button class="btn s w" style="margin-bottom:10px" data-act="rep-pdf-year">' + ICON.pdf + ' PDF report for ' + r.year + '</button>' : '') +
     '<div class="stats" style="margin-bottom:12px">' +
     (own ? stat('Money in ' + r.year, money(t.moneyIn), 'sales ' + money(t.salesIn + t.debtIn).replace('GH₵ ', '') + ' · jobs ' + money(t.jobsIn).replace('GH₵ ', ''), true) +
       stat('Expenses ' + r.year, money(t.expenses), 'wages ' + money(t.wages).replace('GH₵ ', '')) +
@@ -1540,8 +1578,8 @@ function addPastedRooms(mode) {
 /* ============ CLIENTS: history, owing, reminders, thank-you ============ */
 ST.clients = null; ST.cliFilter = 'All';
 function loadClients() {
-  if (!ST.clients) $('#cli-items').innerHTML = '<div class="empty">Loading clients…</div>';
-  return api('apiClients').then(function (l) { ST.clients = l; renderClients(); return l; }).catch(function (e) { $('#cli-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  return fast('apiClients', [], function (l) { ST.clients = l; renderClients(); }, function () { if (!ST.clients) $('#cli-items').innerHTML = '<div class="empty">Loading clients…</div>'; },
+    function (e) { $('#cli-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
 }
 function renderClients() {
   var all = ST.clients || [], f = ST.cliFilter, q = ($('#cli-q').value || '').toLowerCase();
@@ -1618,8 +1656,8 @@ function logout() { store('kg_pin', null); store('kg_init', null); ST.pin = ''; 
 /* ============ JOBS ============ */
 ST.jobs = null; ST.jobFilter = 'Active';
 function loadJobs() {
-  if (!ST.jobs) $('#job-items').innerHTML = '<div class="empty">Loading jobs…</div>';
-  return api('apiJobs').then(function (l) { ST.jobs = l; renderJobs(); return l; }).catch(function (e) { $('#job-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  return fast('apiJobs', [], function (l) { ST.jobs = l; renderJobs(); }, function () { if (!ST.jobs) $('#job-items').innerHTML = '<div class="empty">Loading jobs…</div>'; },
+    function (e) { $('#job-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
 }
 function isActiveJob(j) { return j.status === 'Accepted' || j.status === 'In progress' || (j.status === 'Paid' && j.progress < 100); }
 function renderJobs() {
@@ -1710,8 +1748,7 @@ function exRange(r, quiet) {
   $('#ex-from').value = iso(a); $('#ex-to').value = iso(b); if (!quiet) loadExp();
 }
 function loadExp() {
-  $('#ex-items').innerHTML = '<div class="empty">Loading…</div>';
-  api('apiExpenses', $('#ex-from').value, $('#ex-to').value).then(function (r) {
+  fast('apiExpenses', [$('#ex-from').value, $('#ex-to').value], function (r) {
     ST.expList = r.list;
     var cats = Object.keys(r.byCat).sort(function (a, b) { return r.byCat[b] - r.byCat[a]; });
     var max = cats.length ? r.byCat[cats[0]] : 1;
@@ -1719,7 +1756,7 @@ function loadExp() {
       (r.moneyIn !== undefined ? stat('Money in', money(r.moneyIn), 'all payments received') + '</div><div class="stats" style="margin:-2px 0 12px;grid-template-columns:1fr">' + stat('Profit for this period', money(r.profit), 'money in − expenses', true) : '') + '</div>' +
       (cats.length ? '<div class="card"><h3>By category</h3>' + cats.map(function (c) { return '<div class="catrow"><span>' + esc(c) + '</span><b>' + money(r.byCat[c]) + '</b><div class="bar"><i style="width:' + Math.round(r.byCat[c] / max * 100) + '%"></i></div></div>'; }).join('') + '</div>' : '');
     $('#ex-items').innerHTML = r.list.length ? r.list.map(expItem).join('') : '<div class="empty">No expenses in this period.</div>';
-  }).catch(function (e) { $('#ex-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  }, function () { $('#ex-items').innerHTML = '<div class="empty">Loading…</div>'; }, function (e) { $('#ex-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
 }
 function ensureJobs() { return ST.jobs ? Promise.resolve(ST.jobs) : busy(api('apiJobs'), 'Loading jobs…').then(function (l) { ST.jobs = l; return l; }); }
 function expenseForm(pre) {
@@ -1777,9 +1814,9 @@ function expDetail(no) {
 
 /* ============ WORKERS ============ */
 function loadWorkers() {
-  if (!ST.workerList) $('#wk-items').innerHTML = '<div class="empty">Loading…</div>';
-  return api('apiWorkers').then(function (l) { ST.workerList = l; ST.workers = l.filter(function (w) { return w.active; }); renderWorkers(); return l; })
-    .catch(function (e) { $('#wk-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  return fast('apiWorkers', [], function (l) { ST.workerList = l; ST.workers = l.filter(function (w) { return w.active; }); renderWorkers(); },
+    function () { if (!ST.workerList) $('#wk-items').innerHTML = '<div class="empty">Loading…</div>'; },
+    function (e) { $('#wk-items').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
 }
 function renderWorkers() {
   var l = ST.workerList || [];
@@ -1846,7 +1883,7 @@ document.addEventListener('click', function (ev) {
     case 'hp-step': homeStep(+d.d); break;
     case 'hp-full': ST.repMode = ST.homeMode; ST.repDay = ST.homeDay; ST.repMonth = ST.homeMonth; go('rep'); break;
     case 'cli-f': ST.cliFilter = d.f; renderClients(); break;
-    case 'cli-open': busy(api('apiClient', d.k), 'Opening…').then(openClient).catch(function () { }); break;
+    case 'cli-open': openFast('apiClient', d.k, openClient, function (x) { return x && x.key === d.k; }); break;
     case 'cli-of': (ST.clients ? Promise.resolve(ST.clients) : busy(api('apiClients'), 'Opening…').then(function (l) { ST.clients = l; return l; })).then(function (l) {
         var key = (String(d.p).replace(/\D/g, '').length >= 9) ? 'p' + String(d.p).replace(/\D/g, '').slice(-9) : 'n' + String(d.n).toLowerCase().replace(/\s+/g, ' ');
         return busy(api('apiClient', key), 'Opening…');
@@ -1858,6 +1895,8 @@ document.addEventListener('click', function (ev) {
     case 'msg-sms': msgOpen('sms'); break;
     case 'msg-copy': try { navigator.clipboard.writeText($('#msg-t').value).then(function () { toast('Copied'); }); } catch (e) { toast('Could not copy', true); } break;
     case 'rep-mode': ST.repMode = d.m; loadReport(); break;
+    case 'rep-pdf': shareSheet('period', ST.repRange.from + '..' + ST.repRange.to, 'Report · ' + ST.repRange.label); break;
+    case 'rep-pdf-year': shareSheet('period', ST.repYear + '-01-01..' + ST.repYear + '-12-31', 'Report · ' + ST.repYear); break;
     case 'rep-q': repQuick(d.q); break;
     case 'rep-open-month': ST.repMode = 'Month'; ST.repMonth = d.m; loadReport(); window.scrollTo(0, 0); break;
     case 'sync': syncQueue(true); break;
@@ -1866,7 +1905,7 @@ document.addEventListener('click', function (ev) {
     case 'srv-change': KG_SET_SERVER(''); store('kg_init', null); showPin(); break;
     /* jobs */
     case 'job-f': ST.jobFilter = d.f; renderJobs(); break;
-    case 'open-job': busy(api('apiGetJob', d.no), 'Opening…').then(openJob).catch(function () { }); break;
+    case 'open-job': openFast('apiGetJob', d.no, openJob, function (x) { return x && x.no === d.no && x.progress !== undefined; }); break;
     case 'job-upd': jobUpdateForm(ST.page.data); break;
     case 'ju-team': var ti = ST.jobTeam.indexOf(d.n); if (ti >= 0) ST.jobTeam.splice(ti, 1); else ST.jobTeam.push(d.n); el.classList.toggle('on'); break;
     case 'ju-save': saveJobUpdate(); break;
@@ -1923,7 +1962,7 @@ document.addEventListener('click', function (ev) {
       var inp = $('input[data-lf="' + d.k + '"][data-i="' + d.i + '"][data-p="qty"]'); if (inp) inp.value = L.qty; estTotals(); break;
     /* estimate list/detail */
     case 'est-f': ST.estFilter = d.s; renderEstList(); break;
-    case 'open-est': busy(api('apiGetEstimate', d.no), 'Opening…').then(openEst).catch(function () { }); break;
+    case 'open-est': openFast('apiGetEstimate', d.no, openEst, function (x) { return x && x.no === d.no && x.grand !== undefined; }); break;
     case 'est-edit': estToForm(ST.page.data, true); break;
     case 'est-dup': estToForm(ST.page.data, false); toast('Copied. Change what you need and save.'); break;
     case 'est-pay': payForm('est', ST.page.data); break;
@@ -1941,7 +1980,7 @@ document.addEventListener('click', function (ev) {
     case 'pay-all': payAll(d.m); break;
     case 'sl-range': slRange(d.r); break;
     case 'sl-load': loadSales(); break;
-    case 'open-sale': busy(api('apiGetSale', d.no), 'Opening…').then(openSale).catch(function () { }); break;
+    case 'open-sale': openFast('apiGetSale', d.no, openSale, function (x) { return x && x.no === d.no && x.lines !== undefined; }); break;
     case 'sale-collect': payForm('sale', ST.page.data); break;
     case 'owe-collect': busy(api('apiGetSale', d.no), 'Opening…').then(function (x) { openSale(x); payForm('sale', x); }).catch(function () { }); break;
     case 'page-new-sale': closePage(); go('sales'); showSaleTab('new'); break;
