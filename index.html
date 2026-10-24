@@ -441,7 +441,9 @@ function kgCall(fn, args) {
   var url = KG_SERVER();
   if (!url) return Promise.reject(new Error('PIN_WRONG'));
   var key = 'kgc:' + fn + ':' + JSON.stringify(args.slice(1));
-  var fallback = function (why) { var c = KG_READS[fn] ? kgCached(key) : null; if (c !== null) return c; throw new Error('NetworkError: ' + why); };
+  // offline copies are only given to the PIN the server last accepted (or when the business uses no PIN)
+  var pinOk = function () { var last = ''; try { last = localStorage.getItem('kg_pin') || ''; } catch (e) { } var ini = kgCached('kg_init'); return String(args[0] || '') === last || (ini && ini.pinRequired === false); };
+  var fallback = function (why) { var c = KG_READS[fn] && pinOk() ? kgCached(key) : null; if (c !== null) return c; throw new Error('NetworkError: ' + why); };
   if (navigator.onLine === false) { try { return Promise.resolve(fallback('offline')); } catch (e) { return Promise.reject(e); } }
   var ctl = window.AbortController ? new AbortController() : null;
   var timer = setTimeout(function () { if (ctl) ctl.abort(); }, (fn === 'apiPdf' || fn === 'apiJobUpdate') ? 90000 : 30000);
@@ -504,7 +506,7 @@ function api(fn) {
   return new Promise(function (res, rej) {
     var r = google.script.run.withSuccessHandler(res).withFailureHandler(function (e) {
       var m = (e && e.message) || String(e);
-      if (m.indexOf('PIN_WRONG') >= 0) { showPin(ST.pin ? 'Wrong PIN, try again.' : ''); }
+      if (m.indexOf('PIN_WRONG') >= 0) { if (ST.pin && ST.pin === store('kg_pin')) { store('kg_pin', null); store('kg_init', null); } showPin(ST.pin ? 'Wrong PIN, try again.' : ''); }
       rej(new Error(m));
     });
     r[fn].apply(r, [ST.pin].concat(args));
@@ -582,7 +584,9 @@ function applyInit(d) {
 function boot() {
   var cached = null;
   try { cached = JSON.parse(store('kg_init') || 'null'); } catch (e) { }
-  if (cached && cached.settings && (!PIN_REQUIRED || ST.pin)) { applyInit(cached); $('#pin').classList.add('hidden'); }
+  // open the saved copy at once only for the PIN that was last checked by the server (or when no PIN is used at all)
+  var okPin = store('kg_pin') || '';   // kg_pin is only saved after the server accepted it
+  if (cached && cached.settings && (cached.pinRequired === false || (ST.pin && ST.pin === okPin))) { applyInit(cached); $('#pin').classList.add('hidden'); }
   var p = api('apiInit');
   return (BOOTED ? p : busy(p, 'Loading…')).then(function (d) {
     $('#pin').classList.add('hidden');
@@ -592,7 +596,9 @@ function boot() {
     loadHomePeriod();
     setTimeout(prefetch, 1500);
     syncQueue();
-  }).catch(function () { });
+  }).catch(function (e) {
+    if (!$('#pin').classList.contains('hidden') && isNetErr(e)) $('#pin-err').textContent = 'No internet. Connect once so the PIN can be checked.';
+  });
 }
 function refresh() {
   syncQueue(true);
