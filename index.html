@@ -768,7 +768,7 @@ function renderEstForm() {
     '<div class="row2">' + fld('Date', '<input class="in" type="date" data-ef="date" value="' + esc(e.date) + '">') + fld('Prepared by', '<select class="in" data-ef="preparedBy">' + staffOpts(e.preparedBy) + '</select>') + '</div>' +
     '<label class="f"><span>Who buys the materials?</span><div class="tog"><button data-act="matby" data-v="K-GABS" class="' + (e.matBy !== 'Client' ? 'on' : '') + '">We buy (K-GABS)</button><button data-act="matby" data-v="Client" class="' + (e.matBy === 'Client' ? 'on' : '') + '">Client buys</button></div></label></div>' +
     '<div class="card ezcard"><div style="display:flex;gap:12px;align-items:center"><div style="flex:1"><b class="cond" style="font-size:18px;color:var(--deep)">CEILING &amp; PARTITION ESTIMATOR</b><div class="muted">' +
-      (e.rooms && e.rooms.list && e.rooms.list.length ? (function () { var r = estimateCeilings(e.rooms.list, e.rooms.waste), np = e.rooms.list.filter(function (x) { return x.type === 'PT'; }).length, nc = e.rooms.list.length - np; return (nc ? nc + ' room' + (nc === 1 ? '' : 's') + ' · ' + r1(r.pbArea + r.acArea) + ' m² ceiling' : '') + (nc && np ? ' · ' : '') + (np ? np + ' partition wall' + (np === 1 ? '' : 's') + ' · ' + r.ptArea + ' m²' : ''); })() : 'Type room sizes and partition walls, get all the materials') +
+      (e.rooms && e.rooms.list && e.rooms.list.length ? (function () { var r = estimateCeilings(e.rooms.list, e.rooms.waste, null, e.rooms.frame), np = e.rooms.list.filter(function (x) { return x.type === 'PT'; }).length, nc = e.rooms.list.length - np; return (nc ? nc + ' room' + (nc === 1 ? '' : 's') + ' · ' + r1(r.pbArea + r.acArea) + ' m² ceiling' : '') + (nc && np ? ' · ' : '') + (np ? np + ' partition wall' + (np === 1 ? '' : 's') + ' · ' + r.ptArea + ' m²' : ''); })() : 'Type room sizes and partition walls, get all the materials') +
       '</div></div><button class="btn p" data-act="ez-open">' + (e.rooms && e.rooms.list && e.rooms.list.length ? 'Edit rooms' : 'Measure rooms') + '</button></div></div>' +
     '<div class="card"><h3>Materials <span class="money" id="mat-tot"></span></h3><div id="mat-lines"></div>' +
     '<div class="btn2"><button class="btn s" data-act="pick" data-k="mat">+ Add material</button><button class="btn s" data-act="add-head" data-k="mat">+ Heading</button></div>' +
@@ -1311,7 +1311,7 @@ window.addEventListener('offline', function () { toast('You are offline. New sal
 
 /* ============ CEILING ESTIMATOR (room by room) ============ */
 var EST_RULES_DEFAULT = {
-  pb_sheet_item: 'Plasterboard 12.5mm sheet', pb_sheet_len: 2.4, pb_sheet_wid: 1.2, pb_waste: 5,
+  pb_sheet_item: 'Plasterboard 9mm sheet', pt_sheet_item: 'Plasterboard 12.5mm sheet', pb_sheet_len: 2.4, pb_sheet_wid: 1.2, pb_waste: 5,
   pb_main_item: 'Main channel 3m', pb_main_len: 3, pb_main_space: 1.2,
   pb_omega_item: 'Omega', pb_omega_len: 3, pb_omega_space: 0.6,
   pb_angle_item: 'Wall angle / U-track 3m', pb_angle_len: 3,
@@ -1330,7 +1330,9 @@ var EST_RULES_DEFAULT = {
   lab_pb: 'Structure works, Plasterboard skimming', lab_ac: 'Structure works',
   pt_stud_item: 'Stud 7.5cm', pt_stud_len: 3, pt_stud_space: 0.6, pt_track_item: 'Track 7.5cm', pt_track_len: 3,
   pt_sides: 2, pt_height: 3, pt_ins_item: 'Insulation wool (roll)', pt_ins_cover: 9.5,
-  pt_door_w: 0.9, pt_door_h: 2.1, pt_door_studs: 2, lab_pt: ''
+  pt_door_w: 0.9, pt_door_h: 2.1, pt_door_studs: 2, lab_pt: '',
+  pb_hangers: 'No', pb_tap_item: 'Tapping screws (box)', pb_tap_per_m2: 10, pb_tap_per_box: 1000, pt_tap_per_m2: 0,
+  lab_pb_wood: 'Plasterboard skimming'
 };
 function estRules() {
   var r = {}, src = (typeof ST !== 'undefined' && ST.s && ST.s.estRules) || {};
@@ -1361,14 +1363,16 @@ function partGeom(rm, R) {
   return { L: L, H: H, doors: d, net: net };
 }
 /* rooms: [{name,type:'PB'|'AC'|'PT',L,W,H,doors,ins,shape,cutL,cutW,area,walls}], waste: {pb, ac} in % */
-function estimateCeilings(rooms, waste, R) {
+/* frame = 'metal' or 'wood' for the whole estimate; a room can have its own rm.frame */
+function roomFrame(rm, frame) { return (rm.frame || frame) === 'wood' ? 'wood' : 'metal'; }
+function estimateCeilings(rooms, waste, R, frame) {
   R = R || estRules(); waste = waste || {};
   var wPB = (waste.pb === '' || waste.pb === undefined ? R.pb_waste : n(waste.pb)) / 100;
   var wAC = (waste.ac === '' || waste.ac === undefined ? R.ac_waste : n(waste.ac)) / 100;
   var wM = n(R.metal_waste) / 100, ceil = Math.ceil;
-  var out = { rooms: [], pbArea: 0, acArea: 0, ptArea: 0, ptBoard: 0, ptLen: 0, walls: 0, lines: [], labour: [] };
+  var out = { rooms: [], pbArea: 0, pbWood: 0, acArea: 0, ptArea: 0, ptBoard: 0, ptLen: 0, walls: 0, angleWalls: 0, lines: [], labour: [] };
   var t = { pbMain: 0, pbOmega: 0, pbAngle: 0, pbHangers: 0, pbWalls: 0, acMain: 0, acAngle: 0, acHangers: 0, cornice: 0, corniceM: 0, corniceRooms: 0, ptStuds: 0, ptTrack: 0, ptIns: 0, ptDoors: 0, ptWalls: 0 };
-  var sheetA = R.pb_sheet_len * R.pb_sheet_wid, sides = Math.max(1, Math.min(2, Math.round(n(R.pt_sides)) || 2));
+  var sheetA = R.pb_sheet_len * R.pb_sheet_wid, sheetPT = sheetA, sides = Math.max(1, Math.min(2, Math.round(n(R.pt_sides)) || 2));
   (rooms || []).forEach(function (rm) {
     if (rm.type === 'PT') {
       var pg = partGeom(rm, R); if (!pg.L) return;
@@ -1376,38 +1380,47 @@ function estimateCeilings(rooms, waste, R) {
       var pcs = studs * Math.max(1, ceil(pg.H / R.pt_stud_len - 1e-9));
       var boardA = pg.net * sides;
       var p = { name: rm.name || 'Partition', type: 'PT', L: pg.L, H: pg.H, doors: pg.doors, area: pg.net, board: boardA, walls: 0,
-        studs: pcs, tracks: ceil(2 * pg.L * (1 + wM) / R.pt_track_len - 1e-9), sheets: ceil(boardA / sheetA * (1 + wPB) - 1e-9), ins: rm.ins ? ceil(pg.net / R.pt_ins_cover - 1e-9) : 0 };
+        studs: pcs, tracks: ceil(2 * pg.L * (1 + wM) / R.pt_track_len - 1e-9), sheets: ceil(boardA / sheetPT * (1 + wPB) - 1e-9), ins: rm.ins ? ceil(pg.net / R.pt_ins_cover - 1e-9) : 0 };
       out.ptArea += pg.net; out.ptBoard += boardA; out.ptLen += pg.L;
       t.ptStuds += pcs; t.ptTrack += 2 * pg.L; t.ptDoors += pg.doors; t.ptWalls++; if (rm.ins) t.ptIns += pg.net;
       out.rooms.push(p); return;
     }
     var g = roomGeom(rm); if (!g.area) return;
     var b = { name: rm.name || 'Room', type: rm.type === 'AC' ? 'AC' : 'PB', L: g.L, W: g.W, area: g.area, walls: g.walls, shape: rm.shape || 'rect' };
-    if (b.type === 'PB') {
+    if (b.type === 'PB' && roomFrame(rm, frame) === 'wood') {
+      // client fixes wood noggings: boards only, no metal structure
+      b.frame = 'wood'; b.main = b.omega = b.angle = b.hangers = 0;
+      b.sheets = ceil(g.area / sheetA * (1 + wPB) - 1e-9);
+      out.pbArea += g.area; out.pbWood += g.area;
+    } else if (b.type === 'PB') {
+      b.frame = 'metal';
       var mainLines = Math.max(1, ceil(g.W / R.pb_main_space));
       var omegaLines = ceil(g.L / R.pb_omega_space) + 1;
       b.main = mainLines * g.L * g.fill; b.omega = omegaLines * g.W * g.fill;
       b.angle = ceil(g.walls / R.pb_angle_len);
       b.hangers = ceil(mainLines * (ceil(g.L / R.pb_hanger_space) + 1) * g.fill);
       b.sheets = ceil(g.area / (R.pb_sheet_len * R.pb_sheet_wid) * (1 + wPB));
-      out.pbArea += g.area; t.pbMain += b.main; t.pbOmega += b.omega; t.pbAngle += b.angle; t.pbHangers += b.hangers; t.pbWalls += g.walls;
+      out.pbArea += g.area; t.pbMain += b.main; t.pbOmega += b.omega; t.pbAngle += b.angle; t.pbHangers += b.hangers; t.pbWalls += g.walls; out.angleWalls += g.walls;
     } else {
       var acLines = Math.max(1, ceil(g.W / R.ac_main_space));
       b.main = acLines * g.L * g.fill;
       b.angle = ceil(g.walls / R.ac_angle_len);
       b.hangers = ceil(acLines * (ceil(g.L / R.ac_hanger_space) + 1) * g.fill);
       b.tiles = ceil(g.area / (R.ac_tile_len * R.ac_tile_wid) * (1 + wAC));
-      out.acArea += g.area; t.acMain += b.main; t.acAngle += b.angle; t.acHangers += b.hangers;
+      out.acArea += g.area; t.acMain += b.main; t.acAngle += b.angle; t.acHangers += b.hangers; out.angleWalls += g.walls;
     }
     if (rm.cornice) { b.cornice = ceil(g.walls / (n(R.cornice_len) || 2.4)); t.cornice += b.cornice; t.corniceM += g.walls; t.corniceRooms++; }
     out.walls += g.walls; out.rooms.push(b);
   });
   var add = function (item, qty, why) { qty = Math.ceil(qty - 1e-9); if (item && qty > 0) out.lines.push({ item: item, qty: qty, why: why }); };
-  var boardArea = out.pbArea + out.ptBoard;
-  if (boardArea) {
-    var sheets = ceil(boardArea / sheetA * (1 + wPB) - 1e-9);
-    add(R.pb_sheet_item, sheets, (out.pbArea ? 'ceiling ' + r1(out.pbArea) + ' m²' : '') + (out.pbArea && out.ptBoard ? ' + ' : '') +
-      (out.ptBoard ? 'partitions ' + r1(out.ptBoard) + ' m² (' + (sides === 2 ? 'both sides' : 'one side') + ')' : '') + ' + ' + Math.round(wPB * 100) + '% waste');
+  var boardArea = out.pbArea + out.ptBoard, sheets = 0;
+  if (out.pbArea) {
+    var sC = ceil(out.pbArea / sheetA * (1 + wPB) - 1e-9); sheets += sC;
+    add(R.pb_sheet_item, sC, 'ceiling ' + r1(out.pbArea) + ' m²' + (out.pbWood ? ' (' + r1(out.pbWood) + ' m² on wood noggings)' : '') + ' + ' + Math.round(wPB * 100) + '% waste');
+  }
+  if (out.ptBoard) {
+    var sP = ceil(out.ptBoard / sheetPT * (1 + wPB) - 1e-9); sheets += sP;
+    add(R.pt_sheet_item, sP, 'partitions ' + r1(out.ptBoard) + ' m² (' + (sides === 2 ? 'both sides' : 'one side') + ') + ' + Math.round(wPB * 100) + '% waste');
   }
   if (out.ptArea) {
     add(R.pt_stud_item, t.ptStuds * (1 + wM), 'every ' + R.pt_stud_space + ' m' + (t.ptDoors ? ' + ' + n(R.pt_door_studs) + ' per door (' + t.ptDoors + ' door' + (t.ptDoors === 1 ? '' : 's') + ')' : '') + ', wall by wall');
@@ -1419,11 +1432,14 @@ function estimateCeilings(rooms, waste, R) {
     add(R.pb_tape_item, boardArea * R.pb_tape_per_m2 / R.pb_tape_roll, r1(boardArea * R.pb_tape_per_m2) + ' m of joints');
     add(R.pb_comp_item, boardArea * R.pb_comp_per_m2 / R.pb_comp_bag, r1(boardArea * R.pb_comp_per_m2) + ' kg');
   }
-  if (out.pbArea) {
+  var pbHang = String(R.pb_hangers).toLowerCase() === 'yes';
+  var pbMetal = out.pbArea - out.pbWood, tapM2 = pbMetal * n(R.pb_tap_per_m2) + out.ptArea * n(R.pt_tap_per_m2);
+  if (tapM2 > 0 && n(R.pb_tap_per_box) > 0) add(R.pb_tap_item, tapM2 / R.pb_tap_per_box, Math.ceil(tapM2) + ' tapping screws' + (pbMetal ? ' (' + R.pb_tap_per_m2 + ' per m² of metal ceiling)' : ''));
+  if (pbMetal > 0.001) {
     add(R.pb_main_item, t.pbMain * (1 + wM) / R.pb_main_len, r1(t.pbMain) + ' m of runs');
     add(R.pb_omega_item, t.pbOmega * (1 + wM) / R.pb_omega_len, r1(t.pbOmega) + ' m of runs');
     add(R.pb_angle_item, t.pbAngle, 'room by room: ' + r1(t.pbWalls) + ' m of walls');
-    add(R.pb_hanger_item, t.pbHangers, 'every ' + R.pb_hanger_space + ' m on main channels');
+    if (pbHang) add(R.pb_hanger_item, t.pbHangers, 'every ' + R.pb_hanger_space + ' m on main channels');
   }
   if (out.acArea) {
     var cell = R.ac_main_space * R.ac_tile_wid;
@@ -1434,9 +1450,9 @@ function estimateCeilings(rooms, waste, R) {
     add(R.ac_angle_item, t.acAngle, 'room by room');
   }
   if (t.cornice) add(R.cornice_item, t.cornice, 'room by room: ' + r1(t.corniceM) + ' m of walls in ' + t.corniceRooms + ' room' + (t.corniceRooms === 1 ? '' : 's') + ', ' + (n(R.cornice_len) || 2.4) + ' m lengths');
-  var hangers = t.pbHangers + t.acHangers;
+  var hangers = (pbHang ? t.pbHangers : 0) + t.acHangers;
   if (hangers && n(R.wire_per_hanger) > 0) add(R.wire_item, hangers * R.wire_per_hanger, hangers + ' hangers × ' + R.wire_per_hanger + ' m');
-  var fixM = out.walls + t.ptTrack;
+  var fixM = out.angleWalls + t.ptTrack;
   if (fixM && n(R.fix_per_m) > 0) add(R.fix_item, fixM * R.fix_per_m / R.fix_per_box, Math.ceil(fixM * R.fix_per_m) + ' fixings' + (t.ptTrack ? ' (incl. partition tracks)' : ''));
   // merge duplicates (e.g. same item used for both types)
   var merged = {}; out.lines.forEach(function (l) { if (merged[l.item]) { merged[l.item].qty += l.qty; merged[l.item].why += '; ' + l.why; } else merged[l.item] = l; });
@@ -1444,10 +1460,10 @@ function estimateCeilings(rooms, waste, R) {
   if (String(R.add_labour).toLowerCase() !== 'no') {
     var lab = {};
     var put = function (names, area) { String(names || '').split(',').map(function (x) { return x.trim(); }).filter(String).forEach(function (nm) { lab[nm] = (lab[nm] || 0) + area; }); };
-    if (out.pbArea) put(R.lab_pb, out.pbArea); if (out.acArea) put(R.lab_ac, out.acArea); if (out.ptArea) put(R.lab_pt, out.ptArea);
+    if (pbMetal > 0.001) put(R.lab_pb, pbMetal); if (out.pbWood) put(R.lab_pb_wood, out.pbWood); if (out.acArea) put(R.lab_ac, out.acArea); if (out.ptArea) put(R.lab_pt, out.ptArea);
     out.labour = Object.keys(lab).map(function (k) { return { desc: k, qty: r1(lab[k]) }; });
   }
-  out.pbArea = r1(out.pbArea); out.acArea = r1(out.acArea); out.ptArea = r1(out.ptArea); out.ptBoard = r1(out.ptBoard); out.ptLen = r1(out.ptLen); out.walls = r1(out.walls);
+  out.pbArea = r1(out.pbArea); out.acArea = r1(out.acArea); out.ptArea = r1(out.ptArea); out.ptBoard = r1(out.ptBoard); out.ptLen = r1(out.ptLen); out.walls = r1(out.walls); out.angleWalls = r1(out.angleWalls); out.pbWood = r1(out.pbWood);
   return out;
 }
 function r1(v) { return Math.round(n(v) * 10) / 10; }
@@ -1465,6 +1481,7 @@ function openEstimator() {
   var R = estRules();
   openPage('Ceiling & partition estimator',
     '<div class="card"><div class="muted">Ceilings: type the <b>length</b> and <b>width</b> of each room. Partitions: type the <b>length</b> and <b>height</b> of each wall. Each one is worked out on its own, then everything is added together.</div></div>' +
+    '<div class="card" id="ez-frame-card"></div>' +
     '<button class="btn p w" data-act="pz-open" style="margin-bottom:12px">Paste many rooms at once</button>' + roomNamesDatalist() +
     '<div id="ez-rooms"></div>' +
     '<div class="btn2" style="margin-bottom:12px"><button class="btn s" data-act="ez-add" data-t="PB">+ Plasterboard room</button><button class="btn s" data-act="ez-add" data-t="AC">+ Acoustic room</button></div>' +
@@ -1475,7 +1492,20 @@ function openEstimator() {
     '<label class="chkline"><input type="checkbox" id="ez-print"' + (e.rooms.print ? ' checked' : '') + '> Show the room sizes on the estimate PDF</label></div>' +
     '<div id="ez-result"></div>' +
     '<button class="btn p w" data-act="ez-put" style="margin:6px 0 30px">Put into estimate</button>');
-  renderEzRooms(); renderEzResult();
+  renderEzFrame(); renderEzRooms(); renderEzResult();
+  if (!e.rooms.frame) askFrame();
+}
+var FRAME_TXT = { metal: 'Metal structure', wood: 'Wood noggings (client fixes)' };
+function renderEzFrame() {
+  var f = ST.est.rooms.frame, el = $('#ez-frame-card'); if (!el) return;
+  el.style.background = f ? '' : 'var(--warnbg)';
+  el.innerHTML = '<h3>Plasterboard ceiling is fixed on</h3><div class="tog"><button data-act="ez-frame" data-v="metal" class="' + (f === 'metal' ? 'on' : '') + '">Metal structure</button><button data-act="ez-frame" data-v="wood" class="' + (f === 'wood' ? 'on' : '') + '">Wood noggings</button></div>' +
+    '<div class="muted" style="margin-top:6px">' + (!f ? '<b>Choose one first.</b> ' : '') + (f === 'wood' ? 'Wood noggings: boards, drywall screws, tape and compound only. No main channel, Omega, wall angle, wall fixings or tapping screws.' : 'Metal: main channel, Omega, wall angle, wall fixings and tapping screws are added.') + ' You can change any single room below.</div>';
+}
+function askFrame() {
+  openSheet('<h2>How is the plasterboard ceiling fixed?</h2><div class="muted" style="margin-bottom:12px">This decides which materials go into the estimate. You can still change any room later.</div>' +
+    '<button class="btn p w" data-act="ez-frame" data-v="metal" style="margin-bottom:10px;flex-direction:column;gap:2px">Metal structure<br><span style="font-weight:500;font-size:13px">main channel, Omega, wall angle, wall fixings, tapping screws</span></button>' +
+    '<button class="btn s w" data-act="ez-frame" data-v="wood" style="flex-direction:column;gap:2px">Wood noggings (client fixes)<br><span style="font-weight:500;font-size:13px">boards, drywall screws, tape and compound only</span></button>');
 }
 function renderEzRooms() {
   var list = ST.est.rooms.list;
@@ -1495,6 +1525,7 @@ function renderEzRooms() {
       '<input class="in" list="ez-names" data-rm="' + i + '" data-f="name" value="' + esc(rm.name) + '" placeholder="Room name (tap to pick)" style="flex:1;font-weight:700" autocomplete="off">' +
       '<button class="del" data-act="ez-del" data-i="' + i + '" aria-label="Remove room">×</button></div>' +
       '<div class="tog" style="margin-bottom:8px"><button data-act="ez-type" data-i="' + i + '" data-v="PB" class="' + (rm.type !== 'AC' ? 'on' : '') + '">Plasterboard</button><button data-act="ez-type" data-i="' + i + '" data-v="AC" class="' + (rm.type === 'AC' ? 'on' : '') + '">Acoustic</button></div>' +
+      (rm.type !== 'AC' ? '<div class="chips" style="margin-bottom:6px">' + [['metal', 'Metal structure'], ['wood', 'Wood noggings']].map(function (f) { return '<button class="chip' + (roomFrame(rm, ST.est.rooms.frame) === f[0] ? ' on' : '') + '" data-act="ez-rframe" data-i="' + i + '" data-v="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' : '') +
       '<div class="chips" style="margin-bottom:6px">' + [['rect', 'Rectangle'], ['L', 'L-shape'], ['custom', 'Other shape']].map(function (s) { return '<button class="chip' + (sh === s[0] ? ' on' : '') + '" data-act="ez-shape" data-i="' + i + '" data-v="' + s[0] + '">' + s[1] + '</button>'; }).join('') + '</div>' +
       (sh === 'custom' ?
         '<div class="row2">' + fld('Area (m²)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="area" value="' + esc(rm.area) + '">') + fld('Total wall length (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="walls" value="' + esc(rm.walls) + '">') + '</div>'
@@ -1505,7 +1536,7 @@ function renderEzRooms() {
   }).join('');
 }
 function renderEzResult() {
-  var e = ST.est, r = estimateCeilings(e.rooms.list, e.rooms.waste), R = estRules();
+  var e = ST.est, r = estimateCeilings(e.rooms.list, e.rooms.waste, null, e.rooms.frame), R = estRules();
   ST.ezLast = r;
   // per-room lines (match by order of rooms with area)
   var k = 0;
@@ -1515,14 +1546,14 @@ function renderEzResult() {
     var b = r.rooms[k++];
     if (b.type === 'PT') { el.innerHTML = '<b>' + r1(b.area) + ' m²</b> (' + r1(b.L) + ' × ' + r1(b.H) + ' m' + (b.doors ? ' less ' + b.doors + ' door' + (b.doors === 1 ? '' : 's') : '') + ') · ' + b.sheets + ' boards · ' + b.studs + ' studs · ' + b.tracks + ' tracks' + (b.ins ? ' · <b>insulation ' + b.ins + ' roll' + (b.ins === 1 ? '' : 's') + '</b>' : ''); return; }
     el.innerHTML = '<b>' + r1(b.area) + ' m²</b> · walls ' + r1(b.walls) + ' m · ' +
-      (b.type === 'PB' ? b.sheets + ' boards · ' + b.angle + ' wall angle · main ' + r1(b.main) + ' m · Omega ' + r1(b.omega) + ' m'
+      (b.type === 'PB' && b.frame === 'wood' ? b.sheets + ' boards · <b>wood noggings</b> (no metal)' : b.type === 'PB' ? b.sheets + ' boards · ' + b.angle + ' wall angle · main ' + r1(b.main) + ' m · Omega ' + r1(b.omega) + ' m'
         : b.tiles + ' tiles · ' + b.angle + ' wall angle · main tee ' + r1(b.main) + ' m') + (b.cornice ? ' · <b>cornice ' + b.cornice + '</b>' : '');
   });
   var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
   var missing = r.lines.filter(function (l) { return !prods[l.item]; });
   $('#ez-result').innerHTML = !r.lines.length ? '<div class="card"><div class="empty" style="padding:8px">Add at least one room with its sizes.</div></div>' :
     '<div class="card"><h3>Materials for all rooms</h3>' +
-    '<div class="stats" style="margin-bottom:10px;grid-template-columns:1fr 1fr' + (r.ptArea ? '' : ' 1fr') + '">' + stat('Plasterboard', r.pbArea + ' m²', 'ceiling') + stat('Acoustic', r.acArea + ' m²', 'ceiling') + stat('Room walls', r.walls + ' m', 'wall angle') + (r.ptArea ? stat('Partitions', r.ptArea + ' m²', r.ptLen + ' m long') : '') + '</div>' +
+    '<div class="stats" style="margin-bottom:10px;grid-template-columns:1fr 1fr' + (r.ptArea ? '' : ' 1fr') + '">' + stat('Plasterboard', r.pbArea + ' m²', 'ceiling') + stat('Acoustic', r.acArea + ' m²', 'ceiling') + stat('Wall angle run', r.angleWalls + ' m', 'metal & acoustic rooms') + (r.ptArea ? stat('Partitions', r.ptArea + ' m²', r.ptLen + ' m long') : '') + '</div>' +
     '<table class="lines">' + r.lines.map(function (l) {
       var p = prods[l.item];
       return '<tr><td>' + esc(l.item) + '<div class="muted">' + esc(l.why) + (p ? '' : ' · <b style="color:var(--bad)">not in your Products list</b>') + '</div></td><td class="r"><b>' + l.qty + '</b> ' + esc(p ? p.unit : '') + '</td></tr>';
@@ -1532,10 +1563,11 @@ function renderEzResult() {
     '</div>';
 }
 function putEstimator() {
-  var e = ST.est, r = ST.ezLast || estimateCeilings(e.rooms.list, e.rooms.waste), R = estRules();
+  var e = ST.est, r = ST.ezLast || estimateCeilings(e.rooms.list, e.rooms.waste, null, e.rooms.frame), R = estRules();
   if (!r.lines.length) { toast('Type at least one room size first', true); return; }
+  if (!e.rooms.frame && e.rooms.list.some(function (x) { return x.type === 'PB' && !x.frame; })) { askFrame(); return; }
   var names = estimatorItemNames(R);
-  var labNames = (R.lab_pb + ',' + R.lab_ac + ',' + R.lab_pt).split(',').map(function (x) { return x.trim(); }).filter(String);
+  var labNames = (R.lab_pb + ',' + R.lab_ac + ',' + R.lab_pt + ',' + R.lab_pb_wood).split(',').map(function (x) { return x.trim(); }).filter(String);
   var oldRate = {}; e.materials.concat(e.labour).forEach(function (x) { if (!x.heading && n(x.rate)) oldRate[x.desc] = x.rate; });
   var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
   e.materials = e.materials.filter(function (m) { return m.heading || names.indexOf(m.desc) < 0; });
@@ -1550,13 +1582,13 @@ function putEstimator() {
 }
 function roomsCard(rooms) {
   if (!rooms || !rooms.list || !rooms.list.length) return '';
-  var r = estimateCeilings(rooms.list, rooms.waste), cr = r.rooms.filter(function (b) { return b.type !== 'PT'; }), pr = r.rooms.filter(function (b) { return b.type === 'PT'; });
+  var r = estimateCeilings(rooms.list, rooms.waste, null, rooms.frame), cr = r.rooms.filter(function (b) { return b.type !== 'PT'; }), pr = r.rooms.filter(function (b) { return b.type === 'PT'; });
   var pt = pr.length ? '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Partition walls <span class="muted" style="text-transform:none;font-family:inherit;font-weight:500">only you see this</span></h3><div class="tscroll"><table class="rep"><thead><tr><th>Wall</th><th>Length × height</th><th>Doors</th><th>m²</th><th>Boards</th><th>Studs</th><th>Tracks</th><th>Insulation</th></tr></thead><tbody>' +
     pr.map(function (b) { return '<tr><td>' + esc(b.name) + '</td><td>' + r1(b.L) + ' × ' + r1(b.H) + '</td><td>' + (b.doors || '–') + '</td><td>' + r1(b.area) + '</td><td>' + b.sheets + '</td><td>' + b.studs + '</td><td>' + b.tracks + '</td><td>' + (b.ins ? b.ins + ' roll' + (b.ins === 1 ? '' : 's') : '–') + '</td></tr>'; }).join('') +
     '</tbody><tfoot><tr><td>Total</td><td>' + r.ptLen + ' m</td><td></td><td>' + r.ptArea + '</td><td></td><td></td><td></td><td></td></tr></tfoot></table></div></div>' : '';
   if (!cr.length) return pt;
   return pt + '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Rooms measured <span class="muted" style="text-transform:none;font-family:inherit;font-weight:500">only you see this' + (rooms.print ? ' (sizes also on PDF)' : '') + '</span></h3><div class="tscroll"><table class="rep"><thead><tr><th>Room</th><th>Size</th><th>m²</th><th>Walls</th><th>Boards / tiles</th><th>Wall angle</th><th>Cornice</th></tr></thead><tbody>' +
-    cr.map(function (b) { return '<tr><td>' + esc(b.name) + '<div class="muted" style="font-weight:500">' + (b.type === 'AC' ? 'Acoustic' : 'Plasterboard') + '</div></td><td>' + (b.shape === 'custom' ? 'other' : r1(b.L) + ' × ' + r1(b.W) + (b.shape === 'L' ? ' L' : '')) + '</td><td>' + r1(b.area) + '</td><td>' + r1(b.walls) + '</td><td>' + (b.type === 'AC' ? b.tiles : b.sheets) + '</td><td>' + b.angle + '</td><td>' + (b.cornice || '–') + '</td></tr>'; }).join('') +
+    cr.map(function (b) { return '<tr><td>' + esc(b.name) + '<div class="muted" style="font-weight:500">' + (b.type === 'AC' ? 'Acoustic' : 'Plasterboard' + (b.frame === 'wood' ? ' · wood' : '')) + '</div></td><td>' + (b.shape === 'custom' ? 'other' : r1(b.L) + ' × ' + r1(b.W) + (b.shape === 'L' ? ' L' : '')) + '</td><td>' + r1(b.area) + '</td><td>' + r1(b.walls) + '</td><td>' + (b.type === 'AC' ? b.tiles : b.sheets) + '</td><td>' + b.angle + '</td><td>' + (b.cornice || '–') + '</td></tr>'; }).join('') +
     '</tbody><tfoot><tr><td>Total</td><td></td><td>' + r1(r.pbArea + r.acArea) + '</td><td>' + r.walls + '</td><td></td><td></td><td>' + (r.rooms.reduce(function (a, b) { return a + (b.cornice || 0); }, 0) || '–') + '</td></tr></tfoot></table></div></div>';
 }
 
@@ -1575,6 +1607,8 @@ function parseRoomLines(text, unit, defType) {
     var doors = 0, dm = line.match(/(\d+)\s*doors\b/i) || line.match(/(?:^|[^\d.x*\u00d7]\s*)\b(1)\s*door\b/i);
     if (dm && !/(x|\*|\u00d7|by)\s*$/i.test(line.slice(0, line.indexOf(dm[0])).trim().slice(-3))) { doors = +dm[1]; line = line.replace(/(\d+)\s*doors?\b/i, ' '); }
     else if (/\bdoors?\b/i.test(line)) { doors = 1; line = line.replace(/\bdoors?\b/ig, ' '); }
+    var frm = /\b(wood|wooden|noggings?|noggins?|nogging)\b/i.test(line) ? 'wood' : /\bmetal\b/i.test(line) ? 'metal' : '';
+    line = line.replace(/\b(on\s+)?(wood|wooden|noggings?|noggins?|metal)\b/ig, ' ');
     if (/\b(partitions?|drywall|dry\s*wall|stud\s*wall)\b/i.test(line)) type = 'PT';
     else if (/\b(acoustic|acc|ac|t-?grid|tiles?)\b/i.test(line)) type = 'AC';
     else if (/\b(plasterboard|plaster\s*board|gypsum|pb|pop)\b/i.test(line)) type = 'PB';
@@ -1607,14 +1641,14 @@ function parseRoomLines(text, unit, defType) {
     }
     if (order.length < 2) { bad.push(raw.trim()); return; }
     k++;
-    rooms.push({ name: name || ('Room ' + k), type: type, shape: 'rect', L: toM(order[0]), W: toM(order[1]), fromFeet: order[0].ft || order[1].ft, cornice: cornice });
+    rooms.push({ name: name || ('Room ' + k), type: type, shape: 'rect', L: toM(order[0]), W: toM(order[1]), fromFeet: order[0].ft || order[1].ft, cornice: cornice, frame: frm });
   });
   return { rooms: rooms, bad: bad };
 }
 function openPasteRooms() {
   ST.paste = ST.paste || { unit: 'm', type: 'PB' };
   openSheet('<h2>Paste many rooms</h2>' +
-    '<div class="muted" style="margin-bottom:8px">One room per line: <b>name, length, width</b>. You can paste from WhatsApp, notes or Excel. Write <b>acoustic</b> on a line for an acoustic room, and <b>cornice</b> for a room that gets cornice. For a partition write <b>partition, length, height</b>, and add <b>door</b> / <b>2 doors</b> or <b>insulation</b> if needed.</div>' +
+    '<div class="muted" style="margin-bottom:8px">One room per line: <b>name, length, width</b>. You can paste from WhatsApp, notes or Excel. Write <b>acoustic</b> on a line for an acoustic room, and <b>cornice</b> for a room that gets cornice. Write <b>wood</b> for a room on wood noggings. For a partition write <b>partition, length, height</b>, and add <b>door</b> / <b>2 doors</b> or <b>insulation</b> if needed.</div>' +
     '<label class="f"><span>Sizes are in</span><div class="tog" id="pz-unit">' + [['m', 'Metres'], ['ft', 'Feet']].map(function (u) { return '<button data-act="pz-unit" data-v="' + u[0] + '" class="' + (ST.paste.unit === u[0] ? 'on' : '') + '">' + u[1] + '</button>'; }).join('') + '</div></label>' +
     '<label class="f"><span>Type for lines that don\'t say</span><div class="tog" id="pz-type">' + [['PB', 'Plasterboard'], ['AC', 'Acoustic'], ['PT', 'Partition']].map(function (u) { return '<button data-act="pz-type" data-v="' + u[0] + '" class="' + (ST.paste.type === u[0] ? 'on' : '') + '">' + u[1] + '</button>'; }).join('') + '</div></label>' +
     '<textarea class="in" id="pz-text" style="min-height:170px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px" placeholder="Hall 6 x 4\nRoom 1 3.5 x 3\nRoom 2 3.5 x 3\nPorch, 2.4, 1.8\nKitchen 3 x 2.5\nWashroom 2 x 1.5\nMaster bedroom 4.2 x 3.6\nHall 6 x 4 cornice\nShop 5 x 4 acoustic\nPartition office 4.5 x 3 door insulation">' + esc(ST.paste.text || '') + '</textarea>' +
@@ -1631,7 +1665,7 @@ function pastePreview() {
   box.innerHTML = '<div class="sumbox"><b>' + r.rooms.length + ' line' + (r.rooms.length === 1 ? '' : 's') + ' found · ' + r1(tot) + ' m²</b>' +
     '<table class="lines" style="margin-top:6px">' + r.rooms.map(function (x) {
       if (x.type === 'PT') { var pg = partGeom(x, R); return '<tr><td>' + esc(x.name) + '<div class="muted">Partition wall' + (x.doors ? ' · ' + x.doors + ' door' + (x.doors === 1 ? '' : 's') : '') + (x.ins ? ' · insulation' : '') + (x.fromFeet ? ' · from feet' : '') + '</div></td><td class="r">' + x.L + ' × ' + pg.H + ' m' + (x.H ? '' : '<div class="muted">normal height</div>') + '<div class="muted">' + r1(pg.net) + ' m²</div></td></tr>'; }
-      return '<tr><td>' + esc(x.name) + '<div class="muted">' + (x.type === 'AC' ? 'Acoustic' : 'Plasterboard') + (x.cornice ? ' · cornice' : '') + (x.fromFeet ? ' · from feet' : '') + '</div></td><td class="r">' + x.L + ' × ' + x.W + ' m<div class="muted">' + r1(x.L * x.W) + ' m²</div></td></tr>'; }).join('') + '</table>' +
+      return '<tr><td>' + esc(x.name) + '<div class="muted">' + (x.type === 'AC' ? 'Acoustic' : 'Plasterboard') + (x.frame === 'wood' ? ' · wood' : x.frame === 'metal' ? ' · metal' : '') + (x.cornice ? ' · cornice' : '') + (x.fromFeet ? ' · from feet' : '') + '</div></td><td class="r">' + x.L + ' × ' + x.W + ' m<div class="muted">' + r1(x.L * x.W) + ' m²</div></td></tr>'; }).join('') + '</table>' +
     (r.bad.length ? '<div style="margin-top:8px;color:var(--warn);font-size:13px"><b>Not understood (need two sizes):</b><br>' + r.bad.map(esc).join('<br>') + '</div>' : '') + '</div>';
 }
 function addPastedRooms(mode) {
@@ -1639,7 +1673,7 @@ function addPastedRooms(mode) {
   var list = ST.est.rooms.list;
   if (mode === 'replace') list.length = 0;
   else for (var i = list.length - 1; i >= 0; i--) if (!ezHas(list[i])) list.splice(i, 1);   // drop empty rooms
-  r.rooms.forEach(function (x) { list.push(x.type === 'PT' ? { name: x.name, type: 'PT', L: x.L, H: x.H, doors: x.doors || '', ins: !!x.ins } : { name: x.name, type: x.type, shape: 'rect', L: x.L, W: x.W, cornice: !!x.cornice }); });
+  r.rooms.forEach(function (x) { list.push(x.type === 'PT' ? { name: x.name, type: 'PT', L: x.L, H: x.H, doors: x.doors || '', ins: !!x.ins } : { name: x.name, type: x.type, shape: 'rect', L: x.L, W: x.W, cornice: !!x.cornice, frame: x.type === 'PB' && x.frame && x.frame !== (ST.est.rooms.frame || 'metal') ? x.frame : undefined }); });
   ST.paste.text = ''; closeSheet(); renderEzRooms(); renderEzResult(); saveDraft();
   toast(r.rooms.length + ' room' + (r.rooms.length === 1 ? '' : 's') + ' added');
 }
@@ -1944,6 +1978,8 @@ document.addEventListener('click', function (ev) {
     case 'ez-type': ST.est.rooms.list[+d.i].type = d.v; renderEzRooms(); renderEzResult(); break;
     case 'ez-shape': ST.est.rooms.list[+d.i].shape = d.v; renderEzRooms(); renderEzResult(); break;
     case 'ez-put': putEstimator(); break;
+    case 'ez-frame': ST.est.rooms.frame = d.v; ST.est.rooms.list.forEach(function (x) { delete x.frame; }); closeSheet(); renderEzFrame(); renderEzRooms(); renderEzResult(); saveDraft(); toast(FRAME_TXT[d.v] + ' for all plasterboard rooms'); break;
+    case 'ez-rframe': ST.est.rooms.list[+d.i].frame = d.v === (ST.est.rooms.frame || 'metal') ? undefined : d.v; if (!ST.est.rooms.list[+d.i].frame) delete ST.est.rooms.list[+d.i].frame; renderEzRooms(); renderEzResult(); saveDraft(); break;
     case 'pz-open': openPasteRooms(); break;
     case 'pz-unit': ST.paste.unit = d.v; $$('#pz-unit button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === d.v); }); pastePreview(); break;
     case 'pz-type': ST.paste.type = d.v; $$('#pz-type button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === d.v); }); pastePreview(); break;
