@@ -361,6 +361,8 @@ table.rep td.neg{color:var(--bad);font-weight:700}
     <div class="card who" id="who"></div>
     <div class="tiles">
       <button class="tile owner-only" data-act="nav" data-v="mgmt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><div><b>Management</b><br><span>Targets, tools, training, enquiries</span></div></button>
+      <button class="tile" data-act="nav" data-v="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><div><b>History</b><br><span>Everything, day by day, with a money check</span></div></button>
+      <button class="tile" data-act="nav" data-v="inc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg><div><b>Other income</b><br><span>Tool hire, fees, scrap, commission</span></div></button>
       <button class="tile" data-act="nav" data-v="clients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><div><b>Clients</b><br><span>History, who owes, reminders, reviews</span></div></button>
       <button class="tile" data-act="nav" data-v="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><div><b>Reports</b><br><span>Every month and year</span></div></button>
       <button class="tile" data-act="nav" data-v="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M8 7h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h7"/></svg><div><b>Expenses</b><br><span>Fuel, transport, rent, materials</span></div></button>
@@ -371,6 +373,11 @@ table.rep td.neg{color:var(--bad);font-weight:700}
     <div id="more-extra"></div>
     <button class="btn s w" style="margin-top:16px" data-act="logout">Log out</button>
   </section>
+
+  <!-- HISTORY -->
+  <section class="view" id="v-hist"><div id="h-top"></div><div id="h-body"></div></section>
+  <!-- OTHER INCOME -->
+  <section class="view" id="v-inc"><div id="inc-body"></div></section>
 
   <!-- MANAGEMENT (owner) -->
   <section class="view" id="v-mgmt">
@@ -442,7 +449,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
 window.KG_PWA = true;
 function KG_SERVER() { try { return localStorage.getItem('kg_server') || ''; } catch (e) { return ''; } }
 function KG_SET_SERVER(u) { try { if (u) localStorage.setItem('kg_server', u); else localStorage.removeItem('kg_server'); } catch (e) { } }
-var KG_READS = { apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1, apiPeriod: 1, apiClients: 1, apiClient: 1, apiMgmt: 1 };
+var KG_READS = { apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1, apiPeriod: 1, apiClients: 1, apiClient: 1, apiMgmt: 1, apiHistory: 1, apiIncome: 1 };
 function kgCached(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
 function kgKeep(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { } }
 function kgCall(fn, args) {
@@ -621,10 +628,10 @@ function refresh() {
 function go(v) {
   ST.view = v;
   if (v === 'mgmt' && ST.user && !ST.user.owner) v = 'more';
-  var tab = ['exp', 'work', 'stock', 'rep', 'clients', 'mgmt'].indexOf(v) >= 0 ? 'more' : v;
+  var tab = ['exp', 'work', 'stock', 'rep', 'clients', 'mgmt', 'hist', 'inc'].indexOf(v) >= 0 ? 'more' : v;
   $$('.view').forEach(function (x) { x.classList.toggle('on', x.id === 'v-' + v); });
   $$('.nav button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === tab); });
-  $('#topSub').textContent = { home: 'Sales & Estimates', est: 'Estimates', sales: 'Sales / POS', stock: 'Stock', jobs: 'Jobs', more: 'More', exp: 'Expenses', work: 'Workers & wages', rep: 'Reports', clients: 'Clients', mgmt: 'Management' }[v];
+  $('#topSub').textContent = { home: 'Sales & Estimates', est: 'Estimates', sales: 'Sales / POS', stock: 'Stock', jobs: 'Jobs', more: 'More', exp: 'Expenses', work: 'Workers & wages', rep: 'Reports', clients: 'Clients', mgmt: 'Management', hist: 'History', inc: 'Other income' }[v];
   window.scrollTo(0, 0);
   updateBar();
   if (v === 'home' && ST.stats) { api('apiStats').then(function (s) { ST.stats = s; renderHome(); }).catch(function () { }); loadHomePeriod(); }
@@ -635,6 +642,8 @@ function go(v) {
   if (v === 'more') renderMoreExtra();
   if (v === 'clients') loadClients();
   if (v === 'mgmt') loadMgmt();
+  if (v === 'hist') loadHistory();
+  if (v === 'inc') loadIncome();
 }
 function updateBar() {
   var bar = $('#abar');
@@ -1230,7 +1239,7 @@ function renderPeriod(r, label) {
       stat('Payroll', money(r.wages), r.payroll.length + ' worker' + (r.payroll.length === 1 ? '' : 's') + ' paid') +
       stat('Estimates', String(r.estCount), money(r.estValue) + ' quoted')
       : stat('My sales', money(r.sales), r.salesCount + ' receipts', true) + stat('I received', money(r.moneyIn), 'Cash ' + sm(r.cash) + ' · MoMo ' + sm(r.momo))) + '</div>' +
-    (own ? '<div class="card"><h3>Money in by type</h3>' + kv('Paid at sale', money(r.salesIn)) + kv('Debts collected', money(r.debtIn)) + kv('Job / estimate payments', money(r.jobsIn)) +
+    (own ? '<div class="card"><h3>Money in by type</h3>' + kv('Paid at sale', money(r.salesIn)) + kv('Debts collected', money(r.debtIn)) + kv('Job / estimate payments', money(r.jobsIn)) + kv('Other income', money(r.otherIn || 0)) +
       '<div class="kv big"><span>Total</span><span class="money">' + money(r.moneyIn) + '</span></div></div>' : '') +
     (own && cats.length ? '<div class="card"><h3>Expenses by category</h3>' + cats.map(function (c) { return '<div class="catrow"><span>' + esc(c) + '</span><b>' + money(r.byCat[c]) + '</b><div class="bar"><i style="width:' + Math.round(r.byCat[c] / max * 100) + '%"></i></div></div>'; }).join('') + '</div>' : '') +
     (own ? '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Payroll</h3>' + (r.payroll.length ?
@@ -1694,6 +1703,121 @@ function addPastedRooms(mode) {
   r.rooms.forEach(function (x) { list.push(x.type === 'PT' ? { name: x.name, type: 'PT', L: x.L, H: x.H, doors: x.doors || '', ins: !!x.ins } : { name: x.name, type: x.type, shape: 'rect', L: x.L, W: x.W, cornice: !!x.cornice, frame: x.type === 'PB' && x.frame && x.frame !== (ST.est.rooms.frame || 'metal') ? x.frame : undefined }); });
   ST.paste.text = ''; closeSheet(); renderEzRooms(); renderEzResult(); saveDraft();
   toast(r.rooms.length + ' room' + (r.rooms.length === 1 ? '' : 's') + ' added');
+}
+
+/* ============ OTHER INCOME ============ */
+ST.incYm = ''; ST.inc = null;
+function loadIncome() {
+  if (!ST.incYm) ST.incYm = today().slice(0, 7);
+  var p = ST.incYm.split('-'), from = ST.incYm + '-01', to = iso(new Date(+p[0], +p[1], 0));
+  return fast('apiIncome', [from, to], function (d) { ST.inc = d; renderIncome(); }, function () { if (!ST.inc) $('#inc-body').innerHTML = '<div class="empty">Loading…</div>'; },
+    function (e) { $('#inc-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
+}
+function renderIncome() {
+  var d = ST.inc; if (!d) return;
+  var cats = Object.keys(d.byCat).sort(function (a, b) { return d.byCat[b] - d.byCat[a]; }), max = cats.length ? d.byCat[cats[0]] : 1;
+  $('#inc-body').innerHTML = '<div class="card"><div class="row2" style="align-items:end">' + fld('Month', '<input class="in" type="month" id="inc-ym" value="' + esc(ST.incYm) + '">') +
+    '<button class="btn p" data-act="inc-add" style="margin-bottom:12px">+ Add income</button></div>' +
+    '<div class="muted">Money that is not a sale or a job payment: tool hire, labour hire, site visit fees, scrap, commission and so on. It is added to <b>Money in</b> and <b>Profit</b> everywhere.</div></div>' +
+    '<div class="stats" style="margin-bottom:12px">' + stat('Other income', money(d.total), d.list.length + ' entr' + (d.list.length === 1 ? 'y' : 'ies'), true) + stat('Kinds', String(cats.length), cats[0] ? 'most: ' + cats[0] : '') + '</div>' +
+    (cats.length ? '<div class="card"><h3>By kind</h3>' + cats.map(function (c) { return '<div class="catrow"><span>' + esc(c) + '</span><b>' + money(d.byCat[c]) + '</b><div class="bar"><i style="width:' + Math.round(d.byCat[c] / max * 100) + '%"></i></div></div>'; }).join('') + '</div>' : '') +
+    (d.list.length ? d.list.map(function (x) {
+      return '<div class="item" data-act="inc-open" data-no="' + esc(x.no) + '"><div class="mid"><div class="t">' + esc(x.ref) + '</div><div class="sub">' + esc(x.dateNice) + ' · from ' + esc(x.client) + (x.note && x.note !== x.ref ? ' · ' + esc(x.note) : '') + '</div></div><div class="end"><div class="money" style="color:var(--ok)">' + money(x.amount) + '</div><div class="muted">' + esc(x.by) + '</div></div></div>';
+    }).join('') : '<div class="empty">No other income in this month.</div>');
+}
+function incForm() {
+  var cats = (ST.inc && ST.inc.cats) || ['Other'];
+  openSheet('<h2>Add other income</h2>' +
+    fld('What is it for?', '<select class="in" id="if-cat">' + opts(cats, cats[0]) + '</select>') +
+    fld('Received from', '<input class="in" id="if-from" placeholder="e.g. Kofi Contractor">') +
+    '<div class="row2">' + fld('Cash (GH₵)', '<input class="in" inputmode="decimal" id="if-cash">') + fld('MoMo (GH₵)', '<input class="in" inputmode="decimal" id="if-momo">') + '</div>' +
+    '<div class="row2">' + fld('Bank (GH₵)', '<input class="in" inputmode="decimal" id="if-bank">') + fld('Date', '<input class="in" type="date" id="if-date" value="' + today() + '">') + '</div>' +
+    fld('Note', '<input class="in" id="if-note" placeholder="e.g. laser level hired for 3 days">') +
+    '<button class="btn p w" data-act="inc-save">Save income</button>');
+}
+function incSave() {
+  var x = { cat: $('#if-cat').value, from: $('#if-from').value.trim(), cash: $('#if-cash').value, momo: $('#if-momo').value, bank: $('#if-bank').value, date: $('#if-date').value, note: $('#if-note').value.trim() };
+  if (n(x.cash) + n(x.momo) + n(x.bank) <= 0) { toast('Type the amount in Cash, MoMo or Bank', true); return; }
+  saveOrQueue('apiAddIncome', x, 'Other income ' + money(n(x.cash) + n(x.momo) + n(x.bank)), 'Saving…',
+    function () { closeSheet(); toast('Income saved'); loadIncome(); }, function () { closeSheet(); });
+}
+function incOpen(no) {
+  var x = ((ST.inc && ST.inc.list) || []).filter(function (y) { return y.no === no; })[0]; if (!x) return;
+  openSheet('<h2>' + esc(x.ref) + '</h2><div class="muted" style="margin-bottom:10px">' + esc(x.no) + ' · ' + esc(x.dateNice) + '</div>' +
+    kv('Received from', x.client) + kv('Amount', money(x.amount), 'b') + (x.cash ? kv('Cash', money(x.cash)) : '') + (x.momo ? kv('MoMo', money(x.momo)) : '') + (x.bank ? kv('Bank', money(x.bank)) : '') +
+    kv('Note', x.note || '-') + kv('Recorded by', x.by) +
+    '<button class="btn p w" style="margin-top:12px" data-act="inc-pdf" data-no="' + esc(x.no) + '">Receipt PDF</button>' +
+    (ST.user && ST.user.owner ? '<button class="btn s w" style="margin-top:8px;color:var(--bad)" data-act="inc-del" data-no="' + esc(x.no) + '">Delete</button>' : ''));
+}
+
+/* ============ HISTORY ============ */
+ST.hMode = 'Month'; ST.hDate = ''; ST.hF = 'All'; ST.hist = null;
+function hRange() {
+  var d = new Date((ST.hDate || today()) + 'T12:00:00'), a, b, label;
+  if (ST.hMode === 'Day') { a = b = d; label = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
+  else if (ST.hMode === 'Year') { a = new Date(d.getFullYear(), 0, 1); b = new Date(d.getFullYear(), 11, 31); label = String(d.getFullYear()); }
+  else { a = new Date(d.getFullYear(), d.getMonth(), 1); b = new Date(d.getFullYear(), d.getMonth() + 1, 0); label = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); }
+  return { from: iso(a), to: iso(b), label: label };
+}
+function hShift(k) {
+  var d = new Date((ST.hDate || today()) + 'T12:00:00');
+  if (ST.hMode === 'Day') d.setDate(d.getDate() + k); else if (ST.hMode === 'Year') d.setFullYear(d.getFullYear() + k); else d = new Date(d.getFullYear(), d.getMonth() + k, 1);
+  ST.hDate = iso(d); loadHistory();
+}
+function loadHistory() {
+  var r = hRange();
+  $('#h-top').innerHTML = '<div class="seg" style="margin-bottom:10px">' + ['Day', 'Month', 'Year'].map(function (m) { return '<button class="' + (m === ST.hMode ? 'on' : '') + '" data-act="h-mode" data-m="' + m + '">' + m + '</button>'; }).join('') + '</div>' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><button class="btn s sm" data-act="h-shift" data-k="-1" aria-label="Before">‹</button>' +
+    '<div style="flex:1;text-align:center;font-weight:700;color:var(--deep)">' + esc(r.label) + '</div><button class="btn s sm" data-act="h-shift" data-k="1" aria-label="After">›</button>' +
+    '<input class="in" type="date" id="h-date" value="' + esc(ST.hDate || today()) + '" style="width:44px;padding:8px 4px" aria-label="Pick a date"></div>';
+  return fast('apiHistory', [r.from, r.to], function (d) { ST.hist = d; renderHistory(); }, function () { $('#h-body').innerHTML = '<div class="empty">Loading ' + esc(r.label) + '…</div>'; },
+    function (e) { $('#h-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
+}
+var H_TYPES = { 'Money in': ['Sale', 'Debt paid', 'Job payment', 'Other income'], 'Money out': ['Expense'], 'Sales': ['Sale'], 'Estimates': ['Estimate'], 'Jobs': ['Job update', 'Job payment'], 'Stock': ['Stock in'] };
+function renderHistory() {
+  var d = ST.hist; if (!d) return;
+  var t = d.totals, own = d.owner, q = ($('#h-q') ? $('#h-q').value : '').toLowerCase();
+  var list = d.events.filter(function (e) { return (ST.hF === 'All' || H_TYPES[ST.hF].indexOf(e.type) >= 0) && (!q || (e.title + ' ' + e.sub + ' ' + e.type).toLowerCase().indexOf(q) >= 0); });
+  var ok = '<b style="color:var(--ok)">✓ tallies</b>', bad = '<b style="color:var(--bad)">✗ check</b>';
+  var tally = '<div class="card"><h3>Money check</h3>' +
+    kv('Paid at sale', money(t.salesIn)) + kv('Debts collected', money(t.debtIn)) + kv('Job / estimate payments', money(t.jobsIn)) + kv('Other income', money(t.otherIn)) +
+    '<div class="kv big"><span>Money in</span><span class="money">' + money(t.moneyIn) + '</span></div>' +
+    '<div class="muted" style="font-size:13px;margin:4px 0 8px">By type ' + money(d.tally.byType) + ' ' + (d.tally.typeOk ? ok : bad) + ' · Cash ' + money(t.cash).replace('GH₵ ', '') + ' + MoMo ' + money(t.momo).replace('GH₵ ', '') + ' + Bank ' + money(t.bank).replace('GH₵ ', '') + ' = ' + money(d.tally.byMethod) + ' ' + (d.tally.methodOk ? ok : bad) + '</div>' +
+    (own ? kv('Expenses', '- ' + money(t.expenses)) + '<div class="kv big"><span>Profit</span><span class="money" style="color:' + (t.profit < 0 ? 'var(--bad)' : 'var(--ok)') + '">' + money(t.profit) + '</span></div>' : '') +
+    '<div class="muted" style="font-size:12px">Sales made ' + money(t.sales) + (t.owing ? ' (still owed ' + money(t.owing) + ')' : '') + ' · ' + t.estCount + ' estimate' + (t.estCount === 1 ? '' : 's') + ' worth ' + money(t.estValue) + '</div></div>';
+  var day = '', rows = list.map(function (e) {
+    var h = e.date !== day ? '<div class="sec" style="margin-top:12px">' + esc(e.date) + '</div>' : ''; day = e.date;
+    var col = e.dir === 'in' ? 'var(--ok)' : e.dir === 'out' ? 'var(--bad)' : 'var(--muted)';
+    return h + '<div class="item"' + (e.ref && ['Estimate', 'Sale', 'Debt paid', 'Job payment', 'Other income'].indexOf(e.type) >= 0 ? ' data-act="h-open" data-ref="' + esc(e.ref) + '" data-type="' + esc(e.type) + '"' : ' style="cursor:default"') + '><div class="mid"><div class="t">' + esc(e.title) + '</div><div class="sub">' + esc(e.type) + (e.time ? ' · ' + esc(e.time) : '') + ' · ' + esc(e.sub) + (e.by ? ' · ' + esc(e.by) : '') + '</div></div>' +
+      '<div class="end">' + (e.amount ? '<div class="money" style="color:' + col + '">' + (e.dir === 'out' ? '- ' : e.dir === 'in' ? '+ ' : '') + money(e.amount) + '</div>' : '') + '</div></div>';
+  }).join('');
+  $('#h-body').innerHTML = tally +
+    '<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="in" id="h-q" placeholder="Search name, number, item" value="' + esc(q) + '"></div>' +
+    '<div class="chips">' + ['All'].concat(Object.keys(H_TYPES)).map(function (c) { return '<button class="chip' + (c === ST.hF ? ' on' : '') + '" data-act="h-f" data-v="' + c + '">' + c + '</button>'; }).join('') + '</div>' +
+    (rows || '<div class="empty">Nothing recorded here.</div>') + (d.more ? '<div class="muted" style="margin:10px 4px">' + d.more + ' older entries not shown. Pick a shorter period (Month or Day).</div>' : '');
+  var qi = $('#h-q'); if (q && qi) { qi.focus(); qi.setSelectionRange(q.length, q.length); }
+}
+function hAct(a, d, el) {
+  switch (a) {
+    case 'h-mode': ST.hMode = d.m; loadHistory(); return true;
+    case 'h-shift': hShift(+d.k); return true;
+    case 'h-f': ST.hF = d.v; renderHistory(); return true;
+    case 'h-open':
+      if (d.type === 'Estimate') openFast('apiGetEstimate', d.ref, openEst, function (x) { return x && x.no === d.ref && x.grand !== undefined; });
+      else if (d.type === 'Sale') openFast('apiGetSale', d.ref, openSale, function (x) { return x && x.no === d.ref && x.lines !== undefined; });
+      else if (d.type === 'Other income') { shareSheet('payment', d.ref, 'Receipt ' + d.ref); }
+      else shareSheet('payment', d.ref, 'Payment receipt ' + d.ref);
+      return true;
+    case 'inc-add': incForm(); return true;
+    case 'inc-save': incSave(); return true;
+    case 'inc-open': incOpen(d.no); return true;
+    case 'inc-pdf': shareSheet('payment', d.no, 'Receipt ' + d.no); return true;
+    case 'inc-del':
+      if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = 'Tap again to delete'; return true; }
+      busy(api('apiDeleteIncome', d.no), 'Deleting…').then(function () { closeSheet(); toast('Deleted'); loadIncome(); }).catch(function () { });
+      return true;
+  }
+  return false;
 }
 
 /* ============ MANAGEMENT (owner only): targets, tools, training, enquiries ============ */
@@ -2269,6 +2393,7 @@ document.addEventListener('click', function (ev) {
   var a = el.dataset.act, d = el.dataset;
   if (el.tagName === 'A') return;
   if (a.indexOf('mg-') === 0 && mgAct(a, d, el)) return;
+  if ((a.indexOf('h-') === 0 || a.indexOf('inc-') === 0) && hAct(a, d, el)) return;
   switch (a) {
     case 'nav': go(d.v); if (d.t) showSaleTab(d.t); break;
     case 'go-jobs': go('jobs'); break;
@@ -2429,12 +2554,15 @@ document.addEventListener('input', function (ev) {
   if (t.id === 'stk-q') renderStock();
   if (t.id === 'est-q') renderEstList();
   if (t.id === 'cli-q') renderClients();
+  if (t.id === 'h-q') renderHistory();
   if (t.id === 'pf-stage') { }
 });
 document.addEventListener('change', function (ev) {
   var t = ev.target;
   if (t.id === 'ez-print') { ST.est.rooms.print = t.checked; saveDraft(); }
   if (t.id === 'mg-ym' && t.value) { ST.mgYm = t.value; loadMgmt(); }
+  if (t.id === 'inc-ym' && t.value) { ST.incYm = t.value; loadIncome(); }
+  if (t.id === 'h-date' && t.value) { ST.hDate = t.value; loadHistory(); }
   if (t.dataset && t.dataset.rmc !== undefined) { ST.est.rooms.list[+t.dataset.rmc].cornice = t.checked; renderEzResult(); saveDraft(); }
   if (t.dataset && t.dataset.rmi !== undefined) { ST.est.rooms.list[+t.dataset.rmi].ins = t.checked; renderEzResult(); saveDraft(); }
   if (t.dataset.ef) { ST.est[t.dataset.ef] = t.value; saveDraft(); }
