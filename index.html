@@ -82,6 +82,7 @@ textarea.in{min-height:64px;resize:vertical}
 .b-Accepted,.b-In-progress{background:#E1EEFF;color:var(--royal)}
 .b-Part-paid,.b-Sent{background:var(--warnbg);color:var(--warn)}
 .b-Unpaid,.b-Cancelled{background:var(--badbg);color:var(--bad)}
+.b-Won{background:var(--okbg);color:var(--ok)}.b-Lost{background:var(--badbg);color:var(--bad)}.b-New,.b-Site-visit,.b-Estimate-sent{background:#E1EEFF;color:var(--royal)}
 .money{font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;font-weight:700}
 .muted{color:var(--muted);font-size:13px}
 .right{text-align:right}
@@ -359,6 +360,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
   <section class="view" id="v-more">
     <div class="card who" id="who"></div>
     <div class="tiles">
+      <button class="tile owner-only" data-act="nav" data-v="mgmt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><div><b>Management</b><br><span>Targets, tools, training, enquiries</span></div></button>
       <button class="tile" data-act="nav" data-v="clients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><div><b>Clients</b><br><span>History, who owes, reminders, reviews</span></div></button>
       <button class="tile" data-act="nav" data-v="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><div><b>Reports</b><br><span>Every month and year</span></div></button>
       <button class="tile" data-act="nav" data-v="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M8 7h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h7"/></svg><div><b>Expenses</b><br><span>Fuel, transport, rent, materials</span></div></button>
@@ -368,6 +370,12 @@ table.rep td.neg{color:var(--bad);font-weight:700}
     </div>
     <div id="more-extra"></div>
     <button class="btn s w" style="margin-top:16px" data-act="logout">Log out</button>
+  </section>
+
+  <!-- MANAGEMENT (owner) -->
+  <section class="view" id="v-mgmt">
+    <div class="seg" id="mg-seg"><button class="on" data-act="mg-tab" data-t="targets">Targets</button><button data-act="mg-tab" data-t="tools">Tools</button><button data-act="mg-tab" data-t="train">Training</button><button data-act="mg-tab" data-t="leads">Enquiries</button></div>
+    <div id="mg-body"></div>
   </section>
 
   <!-- CLIENTS -->
@@ -434,7 +442,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
 window.KG_PWA = true;
 function KG_SERVER() { try { return localStorage.getItem('kg_server') || ''; } catch (e) { return ''; } }
 function KG_SET_SERVER(u) { try { if (u) localStorage.setItem('kg_server', u); else localStorage.removeItem('kg_server'); } catch (e) { } }
-var KG_READS = { apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1, apiPeriod: 1, apiClients: 1, apiClient: 1 };
+var KG_READS = { apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1, apiPeriod: 1, apiClients: 1, apiClient: 1, apiMgmt: 1 };
 function kgCached(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
 function kgKeep(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { } }
 function kgCall(fn, args) {
@@ -612,10 +620,11 @@ function refresh() {
 /* ============ navigation ============ */
 function go(v) {
   ST.view = v;
-  var tab = ['exp', 'work', 'stock', 'rep', 'clients'].indexOf(v) >= 0 ? 'more' : v;
+  if (v === 'mgmt' && ST.user && !ST.user.owner) v = 'more';
+  var tab = ['exp', 'work', 'stock', 'rep', 'clients', 'mgmt'].indexOf(v) >= 0 ? 'more' : v;
   $$('.view').forEach(function (x) { x.classList.toggle('on', x.id === 'v-' + v); });
   $$('.nav button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === tab); });
-  $('#topSub').textContent = { home: 'Sales & Estimates', est: 'Estimates', sales: 'Sales / POS', stock: 'Stock', jobs: 'Jobs', more: 'More', exp: 'Expenses', work: 'Workers & wages', rep: 'Reports', clients: 'Clients' }[v];
+  $('#topSub').textContent = { home: 'Sales & Estimates', est: 'Estimates', sales: 'Sales / POS', stock: 'Stock', jobs: 'Jobs', more: 'More', exp: 'Expenses', work: 'Workers & wages', rep: 'Reports', clients: 'Clients', mgmt: 'Management' }[v];
   window.scrollTo(0, 0);
   updateBar();
   if (v === 'home' && ST.stats) { api('apiStats').then(function (s) { ST.stats = s; renderHome(); }).catch(function () { }); loadHomePeriod(); }
@@ -625,6 +634,7 @@ function go(v) {
   if (v === 'rep') loadReport();
   if (v === 'more') renderMoreExtra();
   if (v === 'clients') loadClients();
+  if (v === 'mgmt') loadMgmt();
 }
 function updateBar() {
   var bar = $('#abar');
@@ -740,6 +750,14 @@ function fixEst(d) {
   if (d.rooms && !Array.isArray(d.rooms.list)) d.rooms = null;
   return d;
 }
+function taxPartsList(rate) { var p = (ST.s.taxParts || []), sum = p.reduce(function (a, x) { return a + n(x.rate); }, 0); return p.length && Math.abs(sum - rate) < 0.001 ? p : []; }
+function taxPartsTxt(rate) { return taxPartsList(rate).map(function (x) { return x.name + ' ' + x.rate + '%'; }).join(' + '); }
+function taxKv(tax, rate) {
+  if (!tax) return '';
+  var p = taxPartsList(rate); if (!p.length) return kv((ST.s.taxName || 'Tax') + ' (' + rate + '%)', money(tax));
+  var base = tax / (rate / 100), left = r2(tax);
+  return p.map(function (x, i) { var a = i === p.length - 1 ? r2(left) : r2(base * x.rate / 100); left = r2(left - a); return kv(x.name + ' (' + x.rate + '%)', money(a)); }).join('');
+}
 function estCalc(e) {
   var mat = 0, lab = 0;
   e.materials.forEach(function (x) { if (!x.heading) mat += n(x.qty) * n(x.rate); });
@@ -776,7 +794,7 @@ function renderEstForm() {
     '<div class="card"><h3>Labour <span class="money" id="lab-tot"></span></h3><div id="lab-lines"></div><div class="btn2"><button class="btn s" data-act="pick" data-k="lab">+ Add labour line</button><button class="btn s" data-act="add-head" data-k="lab">+ Heading</button></div></div>' +
     '<div class="card"><h3>Tax</h3><div class="tog" style="margin-bottom:10px"><button data-act="tax-tog" data-v="0" class="' + (e.useTax ? '' : 'on') + '">No tax</button><button data-act="tax-tog" data-v="1" class="' + (e.useTax ? 'on' : '') + '">Add ' + esc(ST.s.taxName || 'tax') + '</button></div>' +
     '<div id="tax-box"' + (e.useTax ? '' : ' class="hidden"') + '>' + fld('Tax rate (%)', '<input class="in" inputmode="decimal" data-ef="taxRate" value="' + esc(e.taxRate) + '" placeholder="e.g. 20">') +
-    '<div class="muted">' + (e.matBy === 'Client' ? 'Charged on workmanship, because the client buys the materials.' : 'Charged on the full amount after discount.') + '</div></div></div>' +
+    '<div class="muted">' + (taxPartsTxt(n(e.taxRate)) ? 'Ghana 2026: ' + esc(taxPartsTxt(n(e.taxRate))) + '. ' : '') + (e.matBy === 'Client' ? 'Charged on workmanship, because the client buys the materials.' : 'Charged on the full amount after discount.') + '</div></div></div>' +
     '<div class="card"><h3>Other</h3>' + (e.no ? '' : fld('Estimate number (leave empty for automatic)', '<input class="in" data-ef="customNo" value="' + esc(e.customNo) + '" placeholder="Next: ' + esc(ST.s.nextEstNo || 'automatic') + '">')) + '<div class="row2">' + fld('Discount (GH₵)', '<input class="in" inputmode="decimal" data-ef="discount" value="' + esc(e.discount) + '" placeholder="0">') +
     fld('Status', '<select class="in" data-ef="status">' + opts(ST.statuses, e.status) + '</select>') + '</div>' +
     '<div class="row2">' + fld('Problem window (days)', '<input class="in" inputmode="numeric" data-ef="problemDays" value="' + esc(e.problemDays) + '">') + fld('Warranty (months)', '<input class="in" inputmode="numeric" data-ef="warranty" value="' + esc(e.warranty) + '">') + '</div>' +
@@ -815,7 +833,7 @@ function estTotals() {
   e.labour.forEach(function (x, i) { var a = $('#lab-amt-' + i); if (a) a.textContent = money(n(x.qty) * n(x.rate)); });
   $('#mat-tot').textContent = money(c.mat); $('#lab-tot').textContent = money(c.lab);
   $('#est-sum').innerHTML =
-    kv('Materials', money(c.mat)) + kv('Transport', money(e.transport)) + kv('Labour', money(c.lab)) + (n(e.discount) ? kv('Discount', '- ' + money(e.discount)) : '') + (c.tax ? kv((ST.s.taxName || 'Tax') + ' (' + n(e.taxRate) + '%)', money(c.tax)) : '') +
+    kv('Materials', money(c.mat)) + kv('Transport', money(e.transport)) + kv('Labour', money(c.lab)) + (n(e.discount) ? kv('Discount', '- ' + money(e.discount)) : '') + taxKv(c.tax, n(e.taxRate)) +
     '<div class="kv big"><span>GRAND TOTAL</span><span class="money">' + money(c.grand) + '</span></div>' +
     (e.matBy === 'Client' ? '<div class="kv b" style="color:var(--mid)"><span>Workmanship payable to us</span><span>' + money(c.payable) + '</span></div>' : '') +
     planHtml(e, c);
@@ -914,7 +932,7 @@ function openEst(est) {
     '<label class="f" style="margin:12px 0 0"><span>Change status</span><select class="in" id="est-status">' + opts(ST.statuses, c.status) + '</select></label></div>' +
     '<div class="acts" style="margin:0 0 12px"><button class="btn g" data-act="share" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.wa + 'Send on WhatsApp</button><button class="btn s" data-act="share" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Make PDF</button>' +
     '<button class="btn p" data-act="est-pay"' + (c.balance > 0 ? '' : ' disabled') + '>Record payment</button><button class="btn s" data-act="est-edit">Edit</button></div>' +
-    '<div class="card"><h3>Money</h3>' + (c.tax ? kv((ST.s.taxName || 'Tax') + ' (' + c.taxRate + '%)', money(c.tax)) : '') + kv('Grand total', money(c.grand), 'b') + (c.matBy === 'Client' ? kv('Workmanship payable to us', money(c.payable), 'b') : '') + kv('Paid', money(c.paid)) +
+    '<div class="card"><h3>Money</h3>' + taxKv(c.tax, n(c.taxRate)) + kv('Grand total', money(c.grand), 'b') + (c.matBy === 'Client' ? kv('Workmanship payable to us', money(c.payable), 'b') : '') + kv('Paid', money(c.paid)) +
     '<div class="kv big"><span>Balance</span><span class="money">' + money(c.balance) + '</span></div>' +
     '<div class="sumbox sched"><b>Payment plan</b>' + sch.map(function (s) { return kv(s.pct + '% · ' + s.label, money(s.amount)); }).join('') + '</div>' +
     (c.payments.length ? '<div class="sec" style="margin-top:14px">Payments received</div>' + c.payments.map(payItem).join('') : '') + '</div>' +
@@ -1678,6 +1696,288 @@ function addPastedRooms(mode) {
   toast(r.rooms.length + ' room' + (r.rooms.length === 1 ? '' : 's') + ' added');
 }
 
+/* ============ MANAGEMENT (owner only): targets, tools, training, enquiries ============ */
+ST.mg = null; ST.mgTab = 'targets'; ST.mgYm = ''; ST.mgToolF = 'All'; ST.mgLeadF = 'Open'; ST.mgWorker = '';
+var TOOL_STARTER = [
+  ['Cordless screw gun (drywall)', 'Power tools', 'High'], ['Hammer drill', 'Power tools', 'High'], ['Angle grinder', 'Power tools', 'Medium'],
+  ['Drywall sander', 'Power tools', 'Low'], ['Mixing paddle for drill', 'Power tools', 'Medium'], ['Extension cable reel', 'Power tools', 'High'],
+  ['Laser level (cross line)', 'Measuring & levelling', 'High'], ['Tape measure 8 m', 'Measuring & levelling', 'High'], ['Spirit level 1.2 m', 'Measuring & levelling', 'High'],
+  ['Chalk line', 'Measuring & levelling', 'Medium'], ['Drywall T-square 1.2 m', 'Measuring & levelling', 'Medium'],
+  ['Tin snips (left & right)', 'Cutting', 'High'], ['Utility knife + blades', 'Cutting', 'High'], ['Jab saw (drywall saw)', 'Cutting', 'Medium'],
+  ['Hole saw set (downlights)', 'Cutting', 'Medium'], ['Drywall rasp', 'Cutting', 'Low'],
+  ['Joint knives 6", 10", 12"', 'Hand tools', 'High'], ['Mud pan / hawk', 'Hand tools', 'High'], ['Skimming trowel', 'Hand tools', 'High'],
+  ['Hammer', 'Hand tools', 'Medium'], ['Pliers', 'Hand tools', 'Medium'], ['Toolbox', 'Hand tools', 'Medium'],
+  ['Step ladder 6 ft', 'Access (ladders & scaffold)', 'High'], ['Step ladder 8 ft', 'Access (ladders & scaffold)', 'Medium'],
+  ['Mobile scaffold / trestles + planks', 'Access (ladders & scaffold)', 'Medium'], ['Board lifter (panel lift)', 'Access (ladders & scaffold)', 'Low'],
+  ['Hard hats', 'Safety (PPE)', 'High'], ['Safety glasses', 'Safety (PPE)', 'High'], ['Dust masks', 'Safety (PPE)', 'High'],
+  ['Work gloves', 'Safety (PPE)', 'High'], ['Safety boots', 'Safety (PPE)', 'Medium'], ['Ear protection', 'Safety (PPE)', 'Low'], ['First aid kit', 'Safety (PPE)', 'High']
+];
+var MG_ICON = { up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 17 6-6 4 4 8-8M15 7h6v6"/></svg>' };
+function mgYm() { if (!ST.mgYm) ST.mgYm = today().slice(0, 7); return ST.mgYm; }
+function loadMgmt() {
+  return fast('apiMgmt', [mgYm()], function (d) { ST.mg = d; renderMg(); },
+    function () { if (!ST.mg) $('#mg-body').innerHTML = '<div class="empty">Loading…</div>'; },
+    function (e) { $('#mg-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
+}
+function mgTab(t) { ST.mgTab = t; $$('#mg-seg button').forEach(function (b) { b.classList.toggle('on', b.dataset.t === t); }); renderMg(); }
+function renderMg() {
+  if (!ST.mg) return;
+  var t = ST.mgTab, el = $('#mg-body');
+  el.innerHTML = t === 'tools' ? mgTools() : t === 'train' ? mgTrain() : t === 'leads' ? mgLeads() : mgTargets();
+}
+function mgSaved(fn, arg, label, after) {
+  saveOrQueue(fn, arg, label, 'Saving…', function () { closeSheet(); toast('Saved'); if (after) after(); renderMg(); loadMgmt(); },
+    function () { closeSheet(); if (after) after(); renderMg(); });
+}
+function mgVal(id) { var x = $('#' + id); return x ? x.value.trim() : ''; }
+function pct(a, b) { return b > 0 ? Math.round(a / b * 100) : 0; }
+
+/* ---- targets ---- */
+function mgTargets() {
+  var d = ST.mg, ym = d.ym, mm = new Date(ym + '-15T12:00:00'), label = mm.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  var now = new Date(), cur = today().slice(0, 7) === ym;
+  var dim = new Date(mm.getFullYear(), mm.getMonth() + 1, 0).getDate(), pace = cur ? now.getDate() / dim : (ym < today().slice(0, 7) ? 1 : 0);
+  var ypace = d.year === now.getFullYear() ? (now.getMonth() + now.getDate() / 31) / 12 : (d.year < now.getFullYear() ? 1 : 0);
+  return '<div class="card"><div class="row2" style="align-items:end">' + fld('Month', '<input class="in" type="month" id="mg-ym" value="' + esc(ym) + '">') +
+    '<button class="btn p" data-act="mg-tset" data-p="' + esc(ym) + '" style="margin-bottom:12px">Set targets</button></div>' +
+    (cur ? '<div class="muted">Day ' + now.getDate() + ' of ' + dim + ': to be on track you should be at about <b>' + Math.round(pace * 100) + '%</b> of each target.</div>' : '') + '</div>' +
+    mgTargetBlock(label, d.targets.month, d.actual.month, pace) +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin:18px 2px 8px"><div class="sec" style="margin:0">Year ' + d.year + '</div><button class="btn s sm" data-act="mg-tset" data-p="' + d.year + '">Set year targets</button></div>' +
+    mgTargetBlock('Year ' + d.year, d.targets.year, d.actual.year, ypace);
+}
+function mgTargetBlock(label, tg, act, pace) {
+  var d = ST.mg, set = d.measures.filter(function (m) { return tg[m[0]] && tg[m[0]].target; });
+  if (!set.length) return '<div class="card"><h3>' + esc(label) + '</h3><div class="empty" style="padding:6px 0">No targets set yet. Tap <b>Set targets</b>.</div>' +
+    d.measures.slice(0, 4).map(function (m) { return kv(m[1] + ' so far', m[2] === 'money' ? money(act[m[0]]) : String(act[m[0]])); }).join('') + '</div>';
+  return '<div class="card"><h3>' + esc(label) + '</h3>' + set.map(function (m) {
+    var k = m[0], T = tg[k].target, A = act[k] || 0, under = k === 'expenses', p = pct(A, T);
+    var fmt = function (v) { return m[2] === 'money' ? money(v) : String(Math.round(v)); };
+    var status = under ? (A <= T * Math.max(pace, 0.01) + 0.001 ? ['Under budget', 'ok'] : ['Over pace', 'bad']) : (p >= 100 ? ['Reached', 'ok'] : p >= pace * 100 - 5 ? ['On track', 'ok'] : ['Behind', 'bad']);
+    if (under && A > T) status = ['Over budget', 'bad'];
+    return '<div style="margin:12px 0 14px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:14px"><b>' + esc(m[1]) + '</b><span class="badge" style="background:var(--' + status[1] + 'bg);color:var(--' + status[1] + ')">' + status[0] + '</span></div>' +
+      '<div class="bar big" style="margin:6px 0 4px"><i style="width:' + Math.min(100, p) + '%' + (status[1] === 'bad' ? ';background:var(--bad)' : '') + '"></i></div>' +
+      '<div class="muted" style="font-size:13px">' + fmt(A) + ' of ' + fmt(T) + ' · <b>' + p + '%</b>' + (!under && T > A ? ' · ' + fmt(T - A) + ' to go' : '') + (tg[k].note ? ' · ' + esc(tg[k].note) : '') + '</div></div>';
+  }).join('') + '</div>';
+}
+function mgTargetSheet(per) {
+  var d = ST.mg, isY = per.length === 4, tg = isY ? (String(d.year) === per ? d.targets.year : {}) : (d.ym === per ? d.targets.month : {});
+  openSheet('<h2>Targets for ' + esc(isY ? per : new Date(per + '-15T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })) + '</h2>' +
+    '<div class="muted" style="margin-bottom:10px">Leave a box empty for no target. The app fills in what you actually did by itself.</div>' +
+    d.measures.map(function (m) { var v = tg[m[0]] || {}; return fld(m[1] + (m[2] === 'money' ? ' (GH₵)' : ''), '<input class="in" inputmode="decimal" id="mgt-' + m[0] + '" value="' + esc(v.target || '') + '">'); }).join('') +
+    '<button class="btn p w" data-act="mg-tsave" data-p="' + esc(per) + '">Save targets</button>');
+}
+function mgTargetSave(per) {
+  var d = ST.mg, items = d.measures.map(function (m) { return { key: m[0], target: mgVal('mgt-' + m[0]) }; });
+  mgSaved('apiSaveTargets', { period: per, items: items }, 'Targets ' + per, function () {
+    var box = per.length === 4 ? d.targets.year : d.targets.month;
+    if ((per.length === 4 && String(d.year) === per) || d.ym === per) items.forEach(function (it) { if (n(it.target)) box[it.key] = { target: n(it.target), note: '' }; else delete box[it.key]; });
+  });
+}
+
+/* ---- tools ---- */
+function mgTools() {
+  var d = ST.mg, all = d.tools, f = ST.mgToolF;
+  var have = all.filter(function (t) { return t.status !== 'To buy'; }), buy = all.filter(function (t) { return t.status === 'To buy'; });
+  var attn = have.filter(function (t) { return t.cond !== 'Good'; });
+  var sum = function (l) { return l.reduce(function (a, t) { return a + n(t.value) * (n(t.qty) || 1); }, 0); };
+  var list = f === 'Have' ? have : f === 'To buy' ? buy : f === 'Needs attention' ? attn : all;
+  var pr = { High: 0, Medium: 1, Low: 2 };
+  list = list.slice().sort(function (a, b) { return a.status === 'To buy' && b.status === 'To buy' ? (pr[a.priority] - pr[b.priority]) : a.name.localeCompare(b.name); });
+  return '<div class="stats" style="margin-bottom:12px">' + stat('Tools I have', String(have.length), sum(have) ? 'worth ' + money(sum(have)) : '', true) +
+    stat('To buy', String(buy.length), sum(buy) ? 'about ' + money(sum(buy)) : '') + stat('Needs attention', String(attn.length), 'repair, broken or lost') +
+    stat('With workers', String(have.filter(function (t) { return t.withWho && t.withWho !== 'Store'; }).length), 'signed out') + '</div>' +
+    '<div class="btn2" style="margin-bottom:12px"><button class="btn p" data-act="mg-tool" data-id="">+ Add tool</button><button class="btn s" data-act="mg-starter">Starter list</button></div>' +
+    '<div class="chips">' + ['All', 'Have', 'To buy', 'Needs attention'].map(function (c) { return '<button class="chip' + (c === f ? ' on' : '') + '" data-act="mg-toolf" data-v="' + c + '">' + c + '</button>'; }).join('') + '</div>' +
+    (list.length ? list.map(function (t) {
+      var tag = t.status === 'To buy' ? '<span class="badge" style="background:var(--warnbg);color:var(--warn)">To buy · ' + esc(t.priority) + '</span>' :
+        t.cond !== 'Good' ? '<span class="badge" style="background:var(--badbg);color:var(--bad)">' + esc(t.cond) + '</span>' : '<span class="badge b-Paid">Good</span>';
+      return '<div class="item" data-act="mg-tool" data-id="' + esc(t.id) + '"><div class="mid"><div class="t">' + esc(t.name) + (n(t.qty) > 1 ? ' × ' + t.qty : '') + '</div><div class="sub">' + esc(t.cat || 'Other') +
+        (t.status !== 'To buy' ? ' · ' + (t.withWho && t.withWho !== 'Store' ? 'with <b>' + esc(t.withWho) + '</b>' : 'in store') : '') + (t.note ? ' · ' + esc(t.note) : '') + '</div></div>' +
+        '<div class="end">' + (n(t.value) ? '<div class="money">' + money(t.value) + '</div>' : '') + tag + '</div></div>';
+    }).join('') : '<div class="empty">' + (all.length ? 'Nothing here.' : 'No tools yet. Tap <b>Starter list</b> to tick the tools you have and the ones you need.') + '</div>');
+}
+function mgToolSheet(id) {
+  var d = ST.mg, t = d.tools.filter(function (x) { return x.id === id; })[0] || { id: '', name: '', cat: d.toolCats[0], qty: 1, status: ST.mgToolF === 'To buy' ? 'To buy' : 'Have', cond: 'Good', value: '', bought: '', withWho: 'Store', priority: 'Medium', note: '' };
+  ST.mgEditTool = t;
+  var who = ['Store'].concat(d.workers.map(function (w) { return w.name; }));
+  openSheet('<h2>' + (t.id ? 'Edit tool' : 'Add a tool') + '</h2>' +
+    fld('Tool', '<input class="in" id="mgx-name" value="' + esc(t.name) + '" placeholder="e.g. Laser level">') +
+    '<div class="row2">' + fld('Category', '<select class="in" id="mgx-cat">' + opts(d.toolCats, t.cat) + '</select>') + fld('Quantity', '<input class="in" inputmode="numeric" id="mgx-qty" value="' + esc(t.qty) + '">') + '</div>' +
+    '<label class="f"><span>Status</span><div class="tog" id="mgx-status">' + ['Have', 'To buy'].map(function (s) { return '<button data-act="mg-tog" data-g="mgx-status" data-v="' + s + '" class="' + (t.status === s ? 'on' : '') + '">' + (s === 'Have' ? 'I have it' : 'To buy') + '</button>'; }).join('') + '</div></label>' +
+    '<div class="row2">' + fld('Condition', '<select class="in" id="mgx-cond">' + opts(d.conditions, t.cond) + '</select>') + fld('Priority (to buy)', '<select class="in" id="mgx-pri">' + opts(['High', 'Medium', 'Low'], t.priority) + '</select>') + '</div>' +
+    '<div class="row2">' + fld('Price each (GH₵)', '<input class="in" inputmode="decimal" id="mgx-val" value="' + esc(t.value || '') + '">') + fld('Date bought', '<input class="in" type="date" id="mgx-bought" value="' + esc(t.bought) + '">') + '</div>' +
+    fld('Who has it now', '<select class="in" id="mgx-with">' + opts(who, who.indexOf(t.withWho) >= 0 ? t.withWho : 'Store') + '</select>') +
+    fld('Note', '<input class="in" id="mgx-note" value="' + esc(t.note) + '" placeholder="e.g. serial no., where to buy">') +
+    '<button class="btn p w" data-act="mg-toolsave">Save</button>' + (t.id ? '<button class="btn s w" style="margin-top:8px;color:var(--bad)" data-act="mg-del" data-k="tool" data-id="' + esc(t.id) + '">Delete tool</button>' : ''));
+}
+function mgTogVal(g) { var b = $('#' + g + ' button.on'); return b ? b.dataset.v : ''; }
+function mgToolSave() {
+  var t = ST.mgEditTool, x = { id: t.id || ('T' + Date.now()), name: mgVal('mgx-name'), cat: mgVal('mgx-cat'), qty: mgVal('mgx-qty') || 1, status: mgTogVal('mgx-status') || 'Have',
+    cond: mgVal('mgx-cond'), priority: mgVal('mgx-pri'), value: mgVal('mgx-val'), bought: mgVal('mgx-bought'), withWho: mgVal('mgx-with'), note: mgVal('mgx-note') };
+  if (!x.name) { toast('Type the tool name', true); return; }
+  mgSaved('apiSaveTool', x, 'Tool: ' + x.name, function () {
+    var l = ST.mg.tools, i = l.map(function (y) { return y.id; }).indexOf(x.id); x.qty = n(x.qty) || 1; x.value = n(x.value);
+    if (i >= 0) l[i] = x; else l.push(x);
+  });
+}
+function mgStarter() {
+  var have = {}; ST.mg.tools.forEach(function (t) { have[t.name.toLowerCase()] = true; });
+  var left = TOOL_STARTER.filter(function (t) { return !have[t[0].toLowerCase()]; });
+  if (!left.length) { toast('All starter tools are already in your list'); return; }
+  var cats = [];
+  left.forEach(function (t) { if (cats.indexOf(t[1]) < 0) cats.push(t[1]); });
+  openSheet('<h2>Starter list for ceiling & partition work</h2><div class="muted" style="margin-bottom:10px">For each tool tap <b>Have</b> or <b>Buy</b>. Skip the ones you don\'t need. You can add prices later.</div>' +
+    cats.map(function (c) {
+      return '<div class="sec" style="margin-top:12px">' + esc(c) + '</div>' + left.filter(function (t) { return t[1] === c; }).map(function (t) {
+        var i = TOOL_STARTER.indexOf(t);
+        return '<div style="display:flex;align-items:center;gap:8px;margin:6px 0"><div style="flex:1;font-size:14px">' + esc(t[0]) + '</div><div class="tog" id="mgs-' + i + '" style="width:150px">' +
+          '<button data-act="mg-tog" data-g="mgs-' + i + '" data-v="Have" data-off="1">Have</button><button data-act="mg-tog" data-g="mgs-' + i + '" data-v="To buy" data-off="1">Buy</button></div></div>';
+      }).join('');
+    }).join('') + '<button class="btn p w" style="margin-top:14px" data-act="mg-startersave">Add the ticked tools</button>');
+}
+function mgStarterSave() {
+  var list = [];
+  TOOL_STARTER.forEach(function (t, i) { var v = mgTogVal('mgs-' + i); if (v) list.push({ name: t[0], cat: t[1], priority: t[2], status: v }); });
+  if (!list.length) { toast('Tap Have or Buy on at least one tool', true); return; }
+  mgSaved('apiAddTools', list, list.length + ' tools from starter list', function () {
+    list.forEach(function (x, k) { ST.mg.tools.push({ id: 'T' + (Date.now() + k), name: x.name, cat: x.cat, qty: 1, status: x.status, cond: 'Good', value: 0, bought: '', withWho: 'Store', priority: x.priority, note: '' }); });
+  });
+}
+
+/* ---- training ---- */
+var LEVEL_COL = { 'Not started': ['#EEF2F5', 'var(--muted)'], 'Learning': ['var(--warnbg)', 'var(--warn)'], 'Can do with help': ['#E1EEFF', 'var(--royal)'], 'Can do alone': ['var(--okbg)', 'var(--ok)'], 'Can teach others': ['var(--deep)', '#fff'] };
+function lvBadge(l) { var c = LEVEL_COL[l] || LEVEL_COL['Not started']; return '<span class="badge" style="background:' + c[0] + ';color:' + c[1] + '">' + esc(l) + '</span>'; }
+function mgSkillOf(w, s) { return ST.mg.training.filter(function (x) { return x.worker === w && x.skill === s; })[0] || { worker: w, skill: s, level: 'Not started', planned: '', done: '', trainer: '', note: '' }; }
+function mgTrain() {
+  var d = ST.mg, ws = d.workers;
+  if (!ws.length) return '<div class="card"><div class="empty" style="padding:6px 0">Add your workers and apprentices first in <b>More → Workers</b>, then come back here to plan their training.</div><button class="btn p w" data-act="nav" data-v="work">Open Workers</button></div>';
+  if (!ST.mgWorker || !ws.some(function (w) { return w.name === ST.mgWorker; })) ST.mgWorker = ws[0].name;
+  var ok = function (l) { return l === 'Can do alone' || l === 'Can teach others'; };
+  var t0 = today(), soon = d.training.filter(function (x) { return x.planned && !x.done && !ok(x.level); }).sort(function (a, b) { return a.planned < b.planned ? -1 : 1; });
+  var overview = '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Team skills</h3>' + ws.map(function (w) {
+    var c = d.skills.filter(function (s) { return ok(mgSkillOf(w.name, s).level); }).length, p = pct(c, d.skills.length);
+    return '<div style="padding:6px 14px;cursor:pointer" data-act="mg-worker" data-w="' + esc(w.name) + '"><div style="display:flex;justify-content:space-between;font-size:14px"><b>' + esc(w.name) + '</b><span class="muted">' + esc(w.type) + ' · ' + c + ' of ' + d.skills.length + ' skills</span></div><div class="bar" style="margin-top:5px"><i style="width:' + p + '%"></i></div></div>';
+  }).join('') + '</div>';
+  var plan = soon.length ? '<div class="card"><h3>Training planned</h3>' + soon.slice(0, 8).map(function (x) {
+    return '<div class="kv"><span><b>' + esc(x.worker) + '</b> · ' + esc(x.skill) + '</span><span style="' + (x.planned < t0 ? 'color:var(--bad);font-weight:700' : '') + '">' + esc(new Date(x.planned + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })) + (x.planned < t0 ? ' (late)' : '') + '</span></div>';
+  }).join('') + '</div>' : '';
+  var gaps = d.skills.map(function (s) { return [s, ws.filter(function (w) { return ok(mgSkillOf(w.name, s).level); }).length]; }).filter(function (g) { return g[1] < 2; });
+  var gapCard = gaps.length ? '<div class="card"><h3>Skills few people have</h3><div class="muted" style="margin-bottom:6px">Fewer than 2 people can do these alone. Train someone so work does not stop when one person is absent.</div>' +
+    gaps.map(function (g) { return kv(g[0], g[1] + ' person' + (g[1] === 1 ? '' : 's')); }).join('') + '</div>' : '';
+  var w = ST.mgWorker;
+  return overview + plan + gapCard +
+    '<div class="sec" style="margin-top:14px">Skills for</div><div class="chips">' + ws.map(function (x) { return '<button class="chip' + (x.name === w ? ' on' : '') + '" data-act="mg-worker" data-w="' + esc(x.name) + '">' + esc(x.name) + '</button>'; }).join('') + '</div>' +
+    d.skills.map(function (s) {
+      var x = mgSkillOf(w, s);
+      return '<div class="item" data-act="mg-skill" data-s="' + esc(s) + '"><div class="mid"><div class="t">' + esc(s) + '</div><div class="sub">' +
+        (x.done ? 'Trained ' + esc(x.done) + (x.trainer ? ' by ' + esc(x.trainer) : '') : x.planned ? 'Planned ' + esc(x.planned) : 'Tap to set level or plan training') + '</div></div><div class="end">' + lvBadge(x.level) + '</div></div>';
+    }).join('') + '<div class="muted" style="margin:10px 4px">Change the skills list in the Sheet: <b>Settings → Skills list</b>.</div>';
+}
+function mgSkillSheet(s) {
+  var d = ST.mg, x = mgSkillOf(ST.mgWorker, s); ST.mgEditSkill = x;
+  openSheet('<h2>' + esc(x.worker) + '</h2><div class="muted" style="margin-bottom:10px">' + esc(s) + '</div>' +
+    '<label class="f"><span>Level now</span><div id="mgk-level" style="display:grid;gap:6px">' + d.levels.map(function (l) { return '<button class="btn s w' + (l === x.level ? ' on' : '') + '" style="justify-content:flex-start' + (l === x.level ? ';border:2px solid var(--deep);color:var(--deep)' : '') + '" data-act="mg-lv" data-v="' + esc(l) + '">' + lvBadge(l) + '</button>'; }).join('') + '</div></label>' +
+    '<div class="row2">' + fld('Training planned for', '<input class="in" type="date" id="mgk-plan" value="' + esc(x.planned) + '">') + fld('Training done on', '<input class="in" type="date" id="mgk-done" value="' + esc(x.done) + '">') + '</div>' +
+    fld('Trained by', '<input class="in" id="mgk-trainer" value="' + esc(x.trainer) + '" placeholder="e.g. Gideon">') +
+    fld('Note', '<input class="in" id="mgk-note" value="' + esc(x.note) + '" placeholder="e.g. needs more practice on joints">') +
+    '<button class="btn p w" data-act="mg-skillsave">Save</button>');
+}
+function mgSkillSave() {
+  var x = ST.mgEditSkill, on = $('#mgk-level button.on');
+  var y = { worker: x.worker, skill: x.skill, level: on ? on.dataset.v : x.level, planned: mgVal('mgk-plan'), done: mgVal('mgk-done'), trainer: mgVal('mgk-trainer'), note: mgVal('mgk-note') };
+  mgSaved('apiSaveSkill', y, 'Training: ' + y.worker + ' · ' + y.skill, function () {
+    var l = ST.mg.training, i = -1; l.forEach(function (z, k) { if (z.worker === y.worker && z.skill === y.skill) i = k; });
+    if (i >= 0) l[i] = y; else l.push(y);
+  });
+}
+
+/* ---- enquiries / leads ---- */
+function mgLeads() {
+  var d = ST.mg, all = d.leads, f = ST.mgLeadF, t0 = today(), ym = today().slice(0, 7);
+  var open = function (x) { return x.status !== 'Won' && x.status !== 'Lost'; };
+  var due = all.filter(function (x) { return open(x) && x.follow && x.follow <= t0; });
+  var month = all.filter(function (x) { return (x.date || '').slice(0, 7) === ym; }), mWon = month.filter(function (x) { return x.status === 'Won'; });
+  var closed = all.filter(function (x) { return !open(x); }), won = all.filter(function (x) { return x.status === 'Won'; });
+  var src = {}; all.forEach(function (x) { var k = x.source || 'Not recorded'; var s = src[k] || (src[k] = { n: 0, won: 0, value: 0 }); s.n++; if (x.status === 'Won') { s.won++; s.value += n(x.value); } });
+  var keys = Object.keys(src).sort(function (a, b) { return src[b].won - src[a].won || src[b].n - src[a].n; });
+  var list = f === 'Open' ? all.filter(open) : f === 'Follow up' ? due : f === 'All' ? all : all.filter(function (x) { return x.status === f; });
+  return '<div class="stats" style="margin-bottom:12px">' + stat('Enquiries this month', String(month.length), mWon.length + ' won', true) +
+    stat('Win rate', closed.length ? pct(won.length, closed.length) + '%' : '–', won.length + ' won of ' + closed.length + ' closed') +
+    stat('Follow up today', String(due.length), 'call or WhatsApp them') + stat('Still open', String(all.filter(open).length), 'not won or lost yet') + '</div>' +
+    '<button class="btn p w" data-act="mg-lead" data-no="" style="margin-bottom:12px">+ New enquiry</button>' +
+    (keys.length ? '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Where jobs come from</h3><div class="tscroll"><table class="rep"><thead><tr><th>Source</th><th>Enquiries</th><th>Won</th><th>Won value</th></tr></thead><tbody>' +
+      keys.map(function (k) { var s = src[k]; return '<tr><td>' + esc(k) + '</td><td>' + s.n + '</td><td>' + s.won + '</td><td>' + money(s.value).replace('GH₵ ', '') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+      '<div class="muted" style="padding:6px 14px 0;font-size:13px">Put more money into the adverts that bring <b>won</b> jobs, not only enquiries.</div></div>' : '') +
+    '<div class="chips">' + ['Open', 'Follow up', 'Won', 'Lost', 'All'].map(function (c) { return '<button class="chip' + (c === f ? ' on' : '') + '" data-act="mg-leadf" data-v="' + c + '">' + c + (c === 'Follow up' && due.length ? ' (' + due.length + ')' : '') + '</button>'; }).join('') + '</div>' +
+    (list.length ? list.map(function (x) {
+      var late = open(x) && x.follow && x.follow <= t0;
+      return '<div class="item" data-act="mg-lead" data-no="' + esc(x.no) + '"><div class="mid"><div class="t">' + esc(x.name || x.phone) + '</div><div class="sub">' + esc(x.job || 'Enquiry') + ' · ' + esc(x.source || 'source?') + ' · ' + esc(x.date) + '</div>' +
+        (late ? '<div class="sub" style="color:var(--bad);font-weight:700">Follow up ' + (x.follow < t0 ? 'was due ' + esc(x.follow) : 'today') + '</div>' : '') + '</div><div class="end">' + (n(x.value) ? '<div class="money">' + money(x.value) + '</div>' : '') + badge(x.status) + '</div></div>';
+    }).join('') : '<div class="empty">' + (all.length ? 'Nothing here.' : 'Record every call or WhatsApp enquiry here, with where they found you. You will see which adverts bring real jobs.') + '</div>');
+}
+function mgLeadSheet(no) {
+  var d = ST.mg, x = d.leads.filter(function (y) { return y.no === no; })[0] || { no: '', date: today(), name: '', phone: '', location: '', job: '', source: '', status: 'New', est: '', value: '', follow: '', note: '' };
+  ST.mgEditLead = x;
+  var wa = String(x.phone || '').replace(/\D/g, ''); if (/^0\d{9}$/.test(wa)) wa = '233' + wa.slice(1);
+  openSheet('<h2>' + (x.no ? esc(x.name || x.phone) : 'New enquiry') + '</h2>' +
+    (x.phone ? '<div class="btn2" style="margin-bottom:10px"><a class="btn s" href="tel:' + esc(x.phone) + '">Call</a><a class="btn s" target="_blank" rel="noopener" href="https://wa.me/' + esc(wa) + '">WhatsApp</a></div>' : '') +
+    '<div class="row2">' + fld('Name', '<input class="in" id="mgl-name" value="' + esc(x.name) + '">') + fld('Phone', '<input class="in" inputmode="tel" id="mgl-phone" value="' + esc(x.phone) + '">') + '</div>' +
+    '<div class="row2">' + fld('Location', '<input class="in" id="mgl-loc" value="' + esc(x.location) + '">') + fld('Date', '<input class="in" type="date" id="mgl-date" value="' + esc(x.date) + '">') + '</div>' +
+    fld('What job do they want?', '<input class="in" id="mgl-job" value="' + esc(x.job) + '" placeholder="e.g. Plasterboard ceiling, 3 bedrooms">') +
+    fld('Where did they find us?', '<select class="in" id="mgl-src"><option value="">Choose…</option>' + opts(d.sources, x.source) + '</select>') +
+    '<label class="f"><span>Status</span><div class="chips" id="mgl-status" style="margin:0">' + d.leadStatuses.map(function (s) { return '<button class="chip' + (s === x.status ? ' on' : '') + '" data-act="mg-lst" data-v="' + s + '">' + s + '</button>'; }).join('') + '</div></label>' +
+    '<div class="row2">' + fld('Value (GH₵)', '<input class="in" inputmode="decimal" id="mgl-val" value="' + esc(x.value || '') + '">') + fld('Estimate No', '<input class="in" id="mgl-est" value="' + esc(x.est) + '">') + '</div>' +
+    fld('Follow up on', '<input class="in" type="date" id="mgl-follow" value="' + esc(x.follow) + '">') +
+    fld('Note', '<input class="in" id="mgl-note" value="' + esc(x.note) + '" placeholder="e.g. wants site visit on Saturday">') +
+    '<button class="btn p w" data-act="mg-leadsave">Save</button>' +
+    '<button class="btn s w" style="margin-top:8px" data-act="mg-lead-est">Save and start an estimate</button>' +
+    (x.no ? '<button class="btn s w" style="margin-top:8px;color:var(--bad)" data-act="mg-del" data-k="lead" data-id="' + esc(x.no) + '">Delete enquiry</button>' : ''));
+}
+function mgLeadSave(toEst) {
+  var x = ST.mgEditLead, st = $('#mgl-status .chip.on');
+  var y = { no: x.no, date: mgVal('mgl-date') || today(), name: mgVal('mgl-name'), phone: mgVal('mgl-phone'), location: mgVal('mgl-loc'), job: mgVal('mgl-job'), source: mgVal('mgl-src'),
+    status: st ? st.dataset.v : x.status, value: mgVal('mgl-val'), est: mgVal('mgl-est'), follow: mgVal('mgl-follow'), note: mgVal('mgl-note') };
+  if (!y.name && !y.phone) { toast('Type a name or phone number', true); return; }
+  if (toEst && y.status === 'New' || toEst && y.status === 'Site visit') y.status = 'Estimate sent';
+  mgSaved('apiSaveLead', y, 'Enquiry: ' + (y.name || y.phone), function () {
+    var l = ST.mg.leads, i = y.no ? l.map(function (z) { return z.no; }).indexOf(y.no) : -1;
+    if (i >= 0) l[i] = y; else { y.no = y.no || 'new'; l.unshift(y); }
+    if (toEst) {
+      ST.est = newEst(); ST.est.client = y.name; ST.est.phone = y.phone; ST.est.location = y.location; ST.est.job = y.job;
+      go('est'); showEstTab('new'); renderEstForm(); saveDraft(); toast('Estimate started for ' + (y.name || y.phone));
+    }
+  });
+}
+function mgAct(act, d, t) {
+  switch (act) {
+    case 'mg-tab': mgTab(d.t); return true;
+    case 'mg-tset': mgTargetSheet(d.p); return true;
+    case 'mg-tsave': mgTargetSave(d.p); return true;
+    case 'mg-toolf': ST.mgToolF = d.v; renderMg(); return true;
+    case 'mg-tool': mgToolSheet(d.id); return true;
+    case 'mg-toolsave': mgToolSave(); return true;
+    case 'mg-starter': mgStarter(); return true;
+    case 'mg-startersave': mgStarterSave(); return true;
+    case 'mg-tog': var on = t.classList.contains('on'); $$('#' + d.g + ' button').forEach(function (b) { b.classList.remove('on'); }); if (!(on && d.off)) t.classList.add('on'); return true;
+    case 'mg-worker': ST.mgWorker = d.w; renderMg(); var c = $('#mg-body .chips'); if (c) c.scrollIntoView({ block: 'start' }); return true;
+    case 'mg-skill': mgSkillSheet(d.s); return true;
+    case 'mg-lv': $$('#mgk-level button').forEach(function (b) { b.classList.remove('on'); b.style.border = ''; b.style.color = ''; }); t.classList.add('on'); t.style.border = '2px solid var(--deep)'; return true;
+    case 'mg-skillsave': mgSkillSave(); return true;
+    case 'mg-leadf': ST.mgLeadF = d.v; renderMg(); return true;
+    case 'mg-lead': mgLeadSheet(d.no); return true;
+    case 'mg-lst': $$('#mgl-status .chip').forEach(function (b) { b.classList.toggle('on', b === t); }); return true;
+    case 'mg-leadsave': mgLeadSave(false); return true;
+    case 'mg-lead-est': mgLeadSave(true); return true;
+    case 'mg-del':
+      if (!t.dataset.sure) { t.dataset.sure = '1'; t.textContent = 'Tap again to delete'; return true; }
+      mgSaved('apiMgmtDelete', { k: d.k, id: d.id }, 'Delete', function () {
+        if (d.k === 'tool') ST.mg.tools = ST.mg.tools.filter(function (x) { return x.id !== d.id; }); else ST.mg.leads = ST.mg.leads.filter(function (x) { return x.no !== d.id; });
+      });
+      return true;
+  }
+  return false;
+}
+
 /* ============ CLIENTS: history, owing, reminders, thank-you ============ */
 ST.clients = null; ST.cliFilter = 'All';
 function loadClients() {
@@ -1719,10 +2019,11 @@ function fillMsg(tpl, v) {
 function composeMsg(type, who) {
   var s = ST.s, msgs = s.msgs || {};
   var v = { client: who.name || 'Sir/Madam', amount: money(who.amount || 0), 'for': who['for'] || 'your account', business: s.name || 'K-GABS', phone: s.phone || '',
-    momo: s.momo || s.phone || '', review: s.review || '(review link)', job: who.job ? ' for the ' + who.job : '',
-    status: who.overdue ? 'now overdue' : 'now due' };
+    momo: s.momo || s.phone || '', bank: s.bank || '(bank details)', review: s.review || '(review link)', job: who.job ? ' for the ' + who.job : '',
+    status: who.overdue ? 'now overdue' : 'now due',
+    progress: who.progress !== undefined ? who.progress : '', stage: who.stage || '-', note: who.note ? 'Latest: ' + who.note + '\n' : '', photo: who.photo ? 'Photo: ' + who.photo + '\n' : '' };
   var text = fillMsg(msgs[type] || '', v).replace(/\\n/g, '\n');
-  var title = { reminder: 'Payment reminder', thanks: 'Thank you + review', video: 'Ask for a video' }[type];
+  var title = { reminder: 'Payment reminder', thanks: 'Thank you + review', video: 'Ask for a video', progress: 'Work progress update' }[type];
   ST.msgPhone = who.phone || '';
   openSheet('<h2>' + title + '</h2><div class="muted" style="margin-bottom:8px">To ' + esc(who.name) + (who.phone ? ' · ' + esc(who.phone) : ' · no phone saved') + '. You can change the words before sending.</div>' +
     (type === 'thanks' && !s.review ? '<div class="sumbox" style="background:var(--warnbg);margin-bottom:10px;font-size:13px">Add your <b>Google review link</b> in the sheet (Settings tab) so clients can rate you with one tap.</div>' : '') +
@@ -1786,6 +2087,7 @@ function openJob(j) {
     '<hr class="d">' + kv('Start', j.startNice || '—') + kv('Target finish', j.endNice || '—') + kv('Team', j.team || '—') + '</div>' +
     '<div class="acts" style="margin:0 0 12px"><button class="btn p" data-act="job-upd">Update progress</button><button class="btn s" data-act="job-exp">+ Job expense</button>' +
     '<button class="btn s owner-only" data-act="job-pay">Pay worker</button><button class="btn s" data-act="open-est" data-no="' + esc(j.no) + '">Open estimate</button>' +
+    '<button class="btn g" data-act="job-msg" data-t="progress">' + ICON.wa + 'Send progress to client</button>' +
     '<button class="btn g" data-act="job-msg" data-t="thanks">' + ICON.wa + 'Thank you + review</button><button class="btn s" data-act="job-msg" data-t="video">Ask for a video</button>' +
     (j.balance > 0 ? '<button class="btn s" data-act="job-msg" data-t="reminder">Payment reminder</button>' : '') + '</div>' +
     (own ? '<div class="card owner-only"><h3>Money on this job</h3>' + kv('Payable by client', money(j.payable), 'b') + kv('Received', money(j.paid)) + kv('Still owed', money(j.balance)) +
@@ -1966,6 +2268,7 @@ document.addEventListener('click', function (ev) {
   var el = ev.target.closest('[data-act]'); if (!el) return;
   var a = el.dataset.act, d = el.dataset;
   if (el.tagName === 'A') return;
+  if (a.indexOf('mg-') === 0 && mgAct(a, d, el)) return;
   switch (a) {
     case 'nav': go(d.v); if (d.t) showSaleTab(d.t); break;
     case 'go-jobs': go('jobs'); break;
@@ -1994,7 +2297,8 @@ document.addEventListener('click', function (ev) {
         return busy(api('apiClient', key), 'Opening…');
       }).then(openClient).catch(function () { }); break;
     case 'msg': composeMsg(d.t, clientFor(ST.page.data, d.t)); break;
-    case 'job-msg': var jj = ST.page.data; composeMsg(d.t, { name: jj.client, phone: jj.phone, amount: jj.balance || 0, 'for': jj.no + (jj.job ? ' (' + jj.job + ')' : ''), job: jj.job }); break;
+    case 'job-msg': var jj = ST.page.data, lu = (jj.updates || [])[0] || {}, ph = ''; (jj.updates || []).some(function (u) { if (u.photo) { ph = u.photo; return true; } });
+      composeMsg(d.t, { name: jj.client, phone: jj.phone, amount: jj.balance || 0, 'for': jj.no + (jj.job ? ' (' + jj.job + ')' : ''), job: jj.job, progress: jj.progress, stage: jj.stage, note: lu.note || jj.note, photo: ph }); break;
     case 'owe-remind': composeMsg('reminder', { name: d.n, phone: d.p, amount: n(d.a), 'for': d.f, overdue: true }); break;
     case 'msg-wa': msgOpen('wa'); break;
     case 'msg-sms': msgOpen('sms'); break;
@@ -2130,6 +2434,7 @@ document.addEventListener('input', function (ev) {
 document.addEventListener('change', function (ev) {
   var t = ev.target;
   if (t.id === 'ez-print') { ST.est.rooms.print = t.checked; saveDraft(); }
+  if (t.id === 'mg-ym' && t.value) { ST.mgYm = t.value; loadMgmt(); }
   if (t.dataset && t.dataset.rmc !== undefined) { ST.est.rooms.list[+t.dataset.rmc].cornice = t.checked; renderEzResult(); saveDraft(); }
   if (t.dataset && t.dataset.rmi !== undefined) { ST.est.rooms.list[+t.dataset.rmi].ins = t.checked; renderEzResult(); saveDraft(); }
   if (t.dataset.ef) { ST.est[t.dataset.ef] = t.value; saveDraft(); }
