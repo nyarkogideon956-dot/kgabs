@@ -1,6 +1,6 @@
 {
-  "name": "K-GABS Ceilings & Construction",
-  "short_name": "K-GABS",
+  "name": "My Business App",
+  "short_name": "My Business",
   "description": "Sales, estimates, jobs and expenses",
   "start_url": "./",
   "scope": "./",
