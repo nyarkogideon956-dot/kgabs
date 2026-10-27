@@ -1,5 +1,5 @@
-/* K-GABS offline app: keeps the app on the phone so it opens without internet */
-const CACHE = 'kgabs-v21';
+/* Offline app: keeps the app on the phone so it opens without internet */
+const CACHE = 'kgabs-v32';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
@@ -13,6 +13,9 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin !== self.location.origin) return;
+  // only this app's own files: another app kept in a sub-folder (e.g. bizapp/) is left alone
+  const base = new URL('./', self.location).pathname, rest = url.pathname.slice(base.length);
+  if (url.pathname.indexOf(base) !== 0 || rest.indexOf('/') >= 0) return;
   // show the saved copy at once (works offline), and fetch a fresh copy for next time
   const key = req.mode === 'navigate' ? 'index.html' : req;
   e.respondWith(caches.open(CACHE).then(c => c.match(key).then(hit => {
