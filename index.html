@@ -195,6 +195,8 @@ table.lines{width:100%;border-collapse:collapse;font-size:14px}
 table.lines td{padding:6px 0;border-bottom:1px solid var(--line);vertical-align:top}
 table.lines td.r{text-align:right;white-space:nowrap;padding-left:8px}
 .search{position:relative;margin-bottom:10px}
+.scanbtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--deep);color:#fff;border-radius:10px;width:40px;height:36px;display:grid;place-items:center}
+.scanbtn svg{width:22px;height:22px}
 .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--slate)}
 .search .in{padding-left:36px}
 /* v7 */
@@ -279,21 +281,23 @@ table.rep td.neg{color:var(--bad);font-weight:700}
 <main>
   <!-- HOME -->
   <section class="view on" id="v-home">
+    <div id="trial-bar"></div>
     <div class="hello"><div class="muted" id="h-date"></div><h1 id="h-greet">Welcome</h1></div>
     <div class="qa-wrap">
-      <button class="qa e" data-act="go-new-est">
+      <button class="qa e" data-mod="est" data-act="go-new-est">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16V8l6-4 6 4v8"/><path d="M10 16v-4h4v4"/></svg>
         <b>New estimate</b><span>Measure, price, send PDF</span></button>
-      <button class="qa s" data-act="go-new-sale">
+      <button class="qa s" data-mod="sales" data-act="go-new-sale">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h2l2.5 11h11L21 7H7"/><circle cx="9" cy="19" r="1.6"/><circle cx="18" cy="19" r="1.6"/></svg>
         <b>New sale</b><span>Sell products, give receipt</span></button>
     </div>
     <div class="qa-mini">
-      <button data-act="go-jobs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V9l7-5 7 5v12"/><path d="M9 21v-6h6v6"/></svg>Jobs</button>
-      <button data-act="exp-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M8 7h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h7"/></svg>Expense</button>
+      <button data-mod="jobs" data-act="go-jobs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V9l7-5 7 5v12"/><path d="M9 21v-6h6v6"/></svg>Jobs</button>
+      <button data-mod="exp" data-act="exp-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M8 7h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h7"/></svg>Expense</button>
       <button data-act="go-owing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Owing</button>
       <button data-act="nav" data-v="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Reports</button>
     </div>
+    <div id="home-low"></div>
     <div class="card" id="home-pick" style="margin-top:12px"></div>
     <div class="stats" id="home-period"></div>
     <div class="sec" id="home-sec">Right now</div>
@@ -317,7 +321,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
   <section class="view" id="v-sales">
     <div class="seg" id="sale-seg"><button class="on" data-act="sale-tab" data-t="new">New sale</button><button data-act="sale-tab" data-t="list">Sales</button><button data-act="sale-tab" data-t="owing">Owing</button></div>
     <div id="sale-new">
-      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="in" id="pos-q" placeholder="Search products"></div>
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="in" id="pos-q" placeholder="Search or type a barcode" style="padding-right:52px"><button class="scanbtn" data-act="scan" aria-label="Scan barcode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M10 8v8M13 8v8M17 8v8"/></svg></button></div>
       <div class="chips" id="pos-cats"></div>
       <div class="pgrid" id="pos-grid"></div>
       <div class="card" id="cart-card"><h3>Cart <button class="link" data-act="cart-clear">Clear</button></h3><div id="cart"></div></div>
@@ -360,17 +364,18 @@ table.rep td.neg{color:var(--bad);font-weight:700}
   <section class="view" id="v-more">
     <div class="card who" id="who"></div>
     <div class="tiles">
-      <button class="tile owner-only" data-act="nav" data-v="mgmt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><div><b>Management</b><br><span>Targets, tools, training, enquiries</span></div></button>
+      <button class="tile owner-only" data-mod="mgmt" data-act="nav" data-v="mgmt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><div><b>Management</b><br><span>Targets, tools, training, enquiries</span></div></button>
       <button class="tile" data-act="nav" data-v="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><div><b>History</b><br><span>Everything, day by day, with a money check</span></div></button>
-      <button class="tile" data-act="nav" data-v="inc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg><div><b>Other income</b><br><span>Tool hire, fees, scrap, commission</span></div></button>
-      <button class="tile" data-act="nav" data-v="clients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><div><b>Clients</b><br><span>History, who owes, reminders, reviews</span></div></button>
+      <button class="tile" data-mod="inc" data-act="nav" data-v="inc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg><div><b>Other income</b><br><span>Tool hire, fees, scrap, commission</span></div></button>
+      <button class="tile" data-mod="clients" data-act="nav" data-v="clients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><div><b>Clients</b><br><span>History, who owes, reminders, reviews</span></div></button>
       <button class="tile" data-act="nav" data-v="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><div><b>Reports</b><br><span>Every month and year</span></div></button>
-      <button class="tile" data-act="nav" data-v="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M8 7h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h7"/></svg><div><b>Expenses</b><br><span>Fuel, transport, rent, materials</span></div></button>
-      <button class="tile owner-only" data-act="nav" data-v="work"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 11a3 3 0 1 0 0-6M21.5 20a6 6 0 0 0-4-5.6"/></svg><div><b>Workers</b><br><span>Team, wages, subcontractors</span></div></button>
-      <button class="tile" data-act="nav" data-v="stock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg><div><b>Stock</b><br><span>What's in the store</span></div></button>
+      <button class="tile" data-mod="exp" data-act="nav" data-v="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M8 7h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h7"/></svg><div><b>Expenses</b><br><span>Fuel, transport, rent, materials</span></div></button>
+      <button class="tile owner-only" data-mod="work" data-act="nav" data-v="work"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 11a3 3 0 1 0 0-6M21.5 20a6 6 0 0 0-4-5.6"/></svg><div><b>Workers</b><br><span>Team, wages, subcontractors</span></div></button>
+      <button class="tile" data-mod="stock" data-act="nav" data-v="stock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg><div><b>Stock</b><br><span>What's in the store</span></div></button>
       <button class="tile" data-act="nav" data-v="sales" data-t="owing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><div><b>Owing</b><br><span>Customers and jobs that owe</span></div></button>
     </div>
     <div id="more-extra"></div>
+    <div class="muted" id="powered" style="text-align:center;font-size:12px;margin-top:14px"></div>
     <button class="btn s w" style="margin-top:16px" data-act="logout">Log out</button>
   </section>
 
@@ -427,9 +432,9 @@ table.rep td.neg{color:var(--bad);font-weight:700}
 
 <nav class="nav">
   <button class="on" data-act="nav" data-v="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg>Home</button>
-  <button data-act="nav" data-v="est"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Estimates</button>
-  <button data-act="nav" data-v="sales"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h2l2.5 11h11L21 7H7"/><circle cx="9" cy="19" r="1.6"/><circle cx="18" cy="19" r="1.6"/></svg>Sales</button>
-  <button data-act="nav" data-v="jobs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V9l7-5 7 5v12"/><path d="M9 21v-6h6v6"/></svg>Jobs</button>
+  <button data-mod="est" data-act="nav" data-v="est"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Estimates</button>
+  <button data-mod="sales" data-act="nav" data-v="sales"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h2l2.5 11h11L21 7H7"/><circle cx="9" cy="19" r="1.6"/><circle cx="18" cy="19" r="1.6"/></svg>Sales</button>
+  <button data-mod="jobs" data-act="nav" data-v="jobs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V9l7-5 7 5v12"/><path d="M9 21v-6h6v6"/></svg>Jobs</button>
   <button data-act="nav" data-v="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>More</button>
 </nav>
 
@@ -521,6 +526,7 @@ function api(fn) {
   return new Promise(function (res, rej) {
     var r = google.script.run.withSuccessHandler(res).withFailureHandler(function (e) {
       var m = (e && e.message) || String(e);
+      if (m.indexOf('TRIAL_ENDED') >= 0) { trialSheet(m.replace(/^.*TRIAL_ENDED:\s*/, '')); rej(new Error('Trial ended')); return; }
       if (m.indexOf('PIN_WRONG') >= 0) { if (ST.pin && ST.pin === store('kg_pin')) { store('kg_pin', null); store('kg_init', null); } showPin(ST.pin ? 'Wrong PIN, try again.' : ''); }
       rej(new Error(m));
     });
@@ -579,9 +585,38 @@ function showPin(err) {
   $('#pin').classList.remove('hidden'); $('#pin-err').textContent = err || ''; $('#pin-in').value = ''; setTimeout(function () { $('#pin-in').focus(); }, 50); }
 /* Fast start: show the last saved copy at once, then update quietly from the sheet. */
 var BOOTED = false;
+function trialSheet(msg) {
+  var t = (ST.s && ST.s.trial) || { wa: '233203207240' };
+  openSheet('<h2>Free trial ended</h2><div class="muted" style="margin-bottom:12px">' + esc(msg || 'Your free trial has ended. Your records are safe.') + '</div>' +
+    '<a class="btn g w" target="_blank" rel="noopener" href="https://wa.me/' + esc(t.wa) + '?text=' + encodeURIComponent('Hello, I want to activate my business app for ' + ((ST.s && ST.s.name) || 'my business') + '.') + '">' + ICON.wa + 'Activate on WhatsApp</a>' +
+    '<div class="muted" style="margin-top:10px;font-size:13px">You can still open and read all your estimates, sales and reports.</div>');
+}
+/* template: each business's own logo, colours and parts of the app (from its Settings tab) */
+var MOD_VIEW = { est: 'est', sales: 'sales', jobs: 'jobs', exp: 'exp', work: 'work', stock: 'stock', clients: 'clients', mgmt: 'mgmt', inc: 'inc' };
+function applyBrand(s) {
+  var th = s.theme || {}, root = document.documentElement.style;
+  var dark = function (h, f) { var n2 = parseInt(h.slice(1), 16); return '#' + [16, 8, 0].map(function (k) { return ('0' + Math.round(((n2 >> k) & 255) * f).toString(16)).slice(-2); }).join(''); };
+  if (th.main) { root.setProperty('--deep2', dark(th.main, 0.62));}
+  if (th.main) { root.setProperty('--deep', th.main); var m = document.querySelector('meta[name=theme-color]'); if (m) m.content = th.main; }
+  if (th.second) root.setProperty('--mid', th.second);
+  if (s.logo) $$('.top .logo img, #pin .box img').forEach(function (im) { im.src = s.logo; });
+  var mods = s.modules || {}, css = Object.keys(mods).filter(function (k) { return mods[k] === false; }).map(function (k) { return '[data-mod="' + k + '"]'; }).join(',');
+  var st = $('#modcss'); if (!st) { st = document.createElement('style'); st.id = 'modcss'; document.head.appendChild(st); }
+  st.textContent = (css ? css + '{display:none!important}' : '') + (mods.est === false || mods.sales === false ? '.qa-wrap{grid-template-columns:1fr}' : '');
+  ST.mods = mods;
+  var pw = $('#powered'); if (pw) pw.textContent = s.powered || '';
+  var tb = $('#trial-bar'), t = s.trial;
+  if (tb) tb.innerHTML = !t ? '' : '<div class="card" style="background:' + (t.ended ? 'var(--badbg)' : 'var(--warnbg)') + ';display:flex;gap:10px;align-items:center">' +
+    '<div style="flex:1"><b style="color:' + (t.ended ? 'var(--bad)' : 'var(--warn)') + '">' + (t.ended ? 'Free trial ended' : 'Free trial: ' + t.daysLeft + ' day' + (t.daysLeft === 1 ? '' : 's') + ' left') + '</b>' +
+    '<div class="muted" style="font-size:13px">' + (t.ended ? 'Your records are safe. Activate to keep saving and sending PDFs.' : 'Ends ' + esc(t.endsNice) + '. Activate any time to keep everything.') + '</div></div>' +
+    '<a class="btn p sm" target="_blank" rel="noopener" href="https://wa.me/' + esc(t.wa) + '?text=' + encodeURIComponent('Hello, I want to activate my business app for ' + (s.name || 'my business') + '.') + '">Activate</a></div>';
+  ST.trialEnded = !!(t && t.ended);
+}
+function modOn(v) { var k = Object.keys(MOD_VIEW).filter(function (x) { return MOD_VIEW[x] === v; })[0]; return !k || !ST.mods || ST.mods[k] !== false; }
 function applyInit(d) {
   ST.s = d.settings; ST.products = d.products; ST.labour = d.labour; ST.staff = d.staff; ST.statuses = d.statuses; ST.stats = d.stats;
-  if (d.settings.name) $('#bizName').textContent = d.settings.name;
+  if (d.settings.name) { $('#bizName').textContent = d.settings.name; document.title = d.settings.name; }
+  applyBrand(d.settings);
   ST.user = d.user || { name: ST.staff[0] || '', owner: true, role: 'Owner' };
   ST.workers = d.workers || []; ST.expCats = d.expCats || []; ST.stages = d.stages || []; ST.workerTypes = d.workerTypes || ['Worker', 'Subcontractor', 'Apprentice'];
   document.body.classList.toggle('staff', !ST.user.owner);
@@ -628,6 +663,7 @@ function refresh() {
 function go(v) {
   ST.view = v;
   if (v === 'mgmt' && ST.user && !ST.user.owner) v = 'more';
+  if (!modOn(v)) v = 'home';
   var tab = ['exp', 'work', 'stock', 'rep', 'clients', 'mgmt', 'hist', 'inc'].indexOf(v) >= 0 ? 'more' : v;
   $$('.view').forEach(function (x) { x.classList.toggle('on', x.id === 'v-' + v); });
   $$('.nav button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === tab); });
@@ -714,6 +750,7 @@ function renderHome() {
   $('#h-date').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   var s = ST.stats; if (!s) return;
   if (!$('#home-pick').innerHTML) renderHomePick();
+  renderLowCard();
   renderHomePeriod();
   $('#home-stats').innerHTML = s.owner ?
     stat('Customers owing', money(s.owingSales), s.owingCount + ' receipt' + (s.owingCount === 1 ? '' : 's')) +
@@ -740,7 +777,7 @@ function newEst() {
   return { no: '', date: today(), client: '', phone: '', location: '', job: '', matBy: 'K-GABS', materials: [], transport: '',
     labour: (ST.labour || []).slice(0, 4).map(function (l) { return { desc: l.desc, unit: l.unit, qty: '', rate: l.rate || '' }; }),
     discount: '', problemDays: ST.s.problemDays || 3, warranty: ST.s.warranty || 6, preparedBy: (ST.user && ST.user.name) || ST.staff[0] || '', status: 'Draft', notes: '',
-    useTax: false, taxRate: ST.s.taxRate || '', customNo: '', title: '', planMode: 'std', plan: [], rooms: null };
+    useTax: false, taxRate: ST.s.taxRate || '', customNo: '', title: '', planMode: 'std', plan: [], rooms: null, recipe: null };
 }
 function saveDraft() { if (ST.est && !ST.est.no) store('kg_est_draft', JSON.stringify(ST.est)); }
 function loadDraft() {
@@ -757,6 +794,7 @@ function fixEst(d) {
   if (!Array.isArray(d.materials)) d.materials = [];
   if (!Array.isArray(d.labour)) d.labour = [];
   if (d.rooms && !Array.isArray(d.rooms.list)) d.rooms = null;
+  if (d.recipe && !Array.isArray(d.recipe.areas)) d.recipe = null;
   return d;
 }
 function taxPartsList(rate) { var p = (ST.s.taxParts || []), sum = p.reduce(function (a, x) { return a + n(x.rate); }, 0); return p.length && Math.abs(sum - rate) < 0.001 ? p : []; }
@@ -793,10 +831,13 @@ function renderEstForm() {
     '<div class="chips" style="margin-top:-4px">' + ['Plasterboard ceiling', 'Acoustic ceiling', 'POP ceiling', 'Partition works', 'Wall skimming'].map(function (t) { return '<button class="chip" data-act="title-pick" data-t="' + t + '">' + t + '</button>'; }).join('') + '</div>' +
     fld('Job description', '<textarea class="in" data-ef="job" placeholder="e.g. Plasterboard ceiling, living room & 2 bedrooms">' + esc(e.job) + '</textarea>') +
     '<div class="row2">' + fld('Date', '<input class="in" type="date" data-ef="date" value="' + esc(e.date) + '">') + fld('Prepared by', '<select class="in" data-ef="preparedBy">' + staffOpts(e.preparedBy) + '</select>') + '</div>' +
-    '<label class="f"><span>Who buys the materials?</span><div class="tog"><button data-act="matby" data-v="K-GABS" class="' + (e.matBy !== 'Client' ? 'on' : '') + '">We buy (K-GABS)</button><button data-act="matby" data-v="Client" class="' + (e.matBy === 'Client' ? 'on' : '') + '">Client buys</button></div></label></div>' +
-    '<div class="card ezcard"><div style="display:flex;gap:12px;align-items:center"><div style="flex:1"><b class="cond" style="font-size:18px;color:var(--deep)">CEILING &amp; PARTITION ESTIMATOR</b><div class="muted">' +
+    '<label class="f"><span>Who buys the materials?</span><div class="tog"><button data-act="matby" data-v="K-GABS" class="' + (e.matBy !== 'Client' ? 'on' : '') + '">We buy</button><button data-act="matby" data-v="Client" class="' + (e.matBy === 'Client' ? 'on' : '') + '">Client buys</button></div></label></div>' +
+    '<div class="card ezcard" data-mod="ez"><div style="display:flex;gap:12px;align-items:center"><div style="flex:1"><b class="cond" style="font-size:18px;color:var(--deep)">CEILING &amp; PARTITION ESTIMATOR</b><div class="muted">' +
       (e.rooms && e.rooms.list && e.rooms.list.length ? (function () { var r = estimateCeilings(e.rooms.list, e.rooms.waste, null, e.rooms.frame), np = e.rooms.list.filter(function (x) { return x.type === 'PT'; }).length, nc = e.rooms.list.length - np; return (nc ? nc + ' room' + (nc === 1 ? '' : 's') + ' · ' + r1(r.pbArea + r.acArea) + ' m² ceiling' : '') + (nc && np ? ' · ' : '') + (np ? np + ' partition wall' + (np === 1 ? '' : 's') + ' · ' + r.ptArea + ' m²' : ''); })() : 'Type room sizes and partition walls, get all the materials') +
       '</div></div><button class="btn p" data-act="ez-open">' + (e.rooms && e.rooms.list && e.rooms.list.length ? 'Edit rooms' : 'Measure rooms') + '</button></div></div>' +
+    (ST.s.recipes && ST.s.recipes.length ? '<div class="card ezcard" data-mod="rcp"><div style="display:flex;gap:12px;align-items:center"><div style="flex:1"><b class="cond" style="font-size:18px;color:var(--deep)">MEASURE &amp; ESTIMATE</b><div class="muted">' +
+      (e.recipe && e.recipe.areas && e.recipe.areas.length ? e.recipe.areas.length + ' area' + (e.recipe.areas.length === 1 ? '' : 's') + ' · ' + esc(e.recipe.areas.map(function (a) { var w = rcpWork(a.work); return w ? w.work : ''; }).filter(function (x, k, l) { return x && l.indexOf(x) === k; }).join(', ')) : 'Tiling, painting, skimming and more: type sizes, get boxes, bags and labour') +
+      '</div></div><button class="btn p" data-act="rc-open">' + (e.recipe && e.recipe.areas && e.recipe.areas.length ? 'Edit areas' : 'Measure') + '</button></div></div>' : '') +
     '<div class="card"><h3>Materials <span class="money" id="mat-tot"></span></h3><div id="mat-lines"></div>' +
     '<div class="btn2"><button class="btn s" data-act="pick" data-k="mat">+ Add material</button><button class="btn s" data-act="add-head" data-k="mat">+ Heading</button></div>' +
     '<div style="margin-top:12px">' + fld('Transport (GH₵)', '<input class="in" inputmode="decimal" data-ef="transport" value="' + esc(e.transport) + '" placeholder="0">') + '</div></div>' +
@@ -940,7 +981,7 @@ function openEst(est) {
     '<div class="muted" style="margin-top:6px">' + esc(c.dateNice) + ' · valid until ' + esc(c.validUntil) + ' · ' + (c.matBy === 'Client' ? 'client buys materials' : 'we buy materials') + '</div>' +
     '<label class="f" style="margin:12px 0 0"><span>Change status</span><select class="in" id="est-status">' + opts(ST.statuses, c.status) + '</select></label></div>' +
     '<div class="acts" style="margin:0 0 12px"><button class="btn g" data-act="share" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.wa + 'Send on WhatsApp</button><button class="btn s" data-act="share" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Make PDF</button>' +
-    '<button class="btn p" data-act="est-pay"' + (c.balance > 0 ? '' : ' disabled') + '>Record payment</button><button class="btn s" data-act="est-edit">Edit</button></div>' +
+    '<button class="btn p" data-act="est-pay"' + (c.balance > 0 ? '' : ' disabled') + '>Record payment</button>' + (ST.s.online && c.balance > 0 ? '<button class="btn g" data-act="pl-open" data-k="estimate" data-no="' + esc(c.no) + '">' + ICON.wa + 'Send MoMo pay link</button>' : '') + '<button class="btn s" data-act="est-edit">Edit</button></div>' +
     '<div class="card"><h3>Money</h3>' + taxKv(c.tax, n(c.taxRate)) + kv('Grand total', money(c.grand), 'b') + (c.matBy === 'Client' ? kv('Workmanship payable to us', money(c.payable), 'b') : '') + kv('Paid', money(c.paid)) +
     '<div class="kv big"><span>Balance</span><span class="money">' + money(c.balance) + '</span></div>' +
     '<div class="sumbox sched"><b>Payment plan</b>' + sch.map(function (s) { return kv(s.pct + '% · ' + s.label, money(s.amount)); }).join('') + '</div>' +
@@ -970,6 +1011,7 @@ function estToForm(est, keepNo) {
     labour: est.labourList.map(function (x) { return x.heading ? { desc: x.desc, heading: true } : { desc: x.desc, unit: x.unit, qty: x.qty, rate: x.rate }; }),
     title: est.title || '', planMode: est.plan && est.plan.length ? 'own' : 'std', plan: (est.plan || []).map(function (p) { return { label: p.label, amount: p.amount }; }),
     rooms: est.rooms ? JSON.parse(JSON.stringify(est.rooms)) : null,
+    recipe: est.recipe ? JSON.parse(JSON.stringify(est.recipe)) : null,
     discount: est.discount || '', problemDays: est.problemDays, warranty: est.warranty, preparedBy: est.preparedBy, status: keepNo ? est.status : 'Draft', notes: est.notes,
     useTax: est.tax > 0, taxRate: est.taxRate || ST.s.taxRate || '', customNo: ''
   };
@@ -1084,26 +1126,36 @@ function saveSale() {
   store('kg_by', s.by);
   var now = new Date(); s.date = iso(now); s.time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   var label = 'Sale ' + (s.customer || 'walk-in') + ' ' + money(c.total);
-  if (isOffline()) { queueIt('apiSaveSale', s, label); clearSale(); return; }
+  var localRc = function () {
+    return { no: 'Not sent yet', dateNice: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), time: s.time, customer: s.customer, by: s.by,
+      lines: s.items.map(function (l) { return { item: l.item, qty: l.qty, unit: l.unit, price: l.price, amount: r2(l.qty * l.price) }; }),
+      subtotal: c.sub, discount: s.discount, total: c.total, paid: c.paid, balance: c.balance, change: c.change };
+  };
+  var offlineDone = function () { var rc = localRc(); rc.offline = true; rc.payments = []; rc.status = 'Waiting to send'; queueIt('apiSaveSale', s, label); clearSale(); openSale(rc); };
+  if (isOffline()) { offlineDone(); return; }
   busy(api('apiSaveSale', s), 'Saving sale…').then(function (sale) {
     clearSale(); toast('Sale saved ' + sale.no);
     openSale(sale);
     if (sale.phone) shareSheet('sale', sale.no, 'Sale saved · send receipt');
-    if (sale.products) { ST.products = sale.products; renderPos(); renderStock(); }
-  }).catch(function (e) { if (isNetErr(e)) { queueIt('apiSaveSale', s, label); clearSale(); } });
+    if (sale.products) { ST.products = sale.products; renderPos(); renderStock(); renderLowCard(); }
+    if (sale.lowNow && sale.lowNow.length) setTimeout(function () { toast('Low stock now: ' + sale.lowNow.map(function (x) { return x.item; }).join(', '), true); }, 2400);
+  }).catch(function (e) { if (isNetErr(e)) offlineDone(); });
 }
+var PRINT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>';
 function openSale(x) {
   ST.page = { kind: 'sale', data: x };
   openPage(x.no,
-    '<div class="card"><div class="rc-head"><img src="' + LOGO + '"><div class="muted">' + esc(x.dateNice) + ' · ' + esc(x.time) + '</div><div class="money">' + money(x.total) + '</div>' + badge(x.status) +
+    '<div class="card"><div class="rc-head"><img src="' + ((ST.s && ST.s.logo) || LOGO) + '"><div class="muted">' + esc(x.dateNice) + ' · ' + esc(x.time) + '</div><div class="money">' + money(x.total) + '</div>' + badge(x.status) +
     (x.change ? '<div style="margin-top:8px;color:var(--ok);font-weight:700">Give change: ' + money(x.change) + '</div>' : '') + '</div>' +
     kv('Customer', x.customer, 'b') + (x.phone ? kv('Phone', x.phone) : '') + (x.location ? kv('Location', x.location) : '') + (x.by ? kv('Served by', x.by) : '') + '<hr class="d">' +
     '<table class="lines">' + x.lines.map(function (l) { return '<tr><td>' + esc(l.item) + '<div class="muted">' + esc(l.qty) + ' ' + esc(l.unit) + ' × ' + money(l.price) + '</div></td><td class="r">' + money(l.amount) + '</td></tr>'; }).join('') + '</table>' +
     kv('Subtotal', money(x.subtotal)) + (x.discount ? kv('Discount', '- ' + money(x.discount)) : '') + '<div class="kv big"><span>TOTAL</span><span class="money">' + money(x.total) + '</span></div>' +
     kv('Paid', money(x.paid), 'b') + '<div class="kv b" style="color:' + (x.balance > 0 ? 'var(--bad)' : 'var(--ok)') + '"><span>Balance</span><span>' + money(x.balance) + '</span></div>' +
     (x.payments.length ? '<div class="sec">Payments</div>' + x.payments.map(payItem).join('') : '') + '</div>' +
-    '<div class="acts"><button class="btn g" data-act="share" data-kind="sale" data-no="' + esc(x.no) + '">' + ICON.wa + 'WhatsApp receipt</button><button class="btn s" data-act="share" data-kind="sale" data-no="' + esc(x.no) + '">' + ICON.pdf + 'PDF receipt</button>' +
-    (x.balance > 0 ? '<button class="btn p" data-act="sale-collect">Collect balance</button>' : '') + '<button class="btn s" data-act="page-new-sale">New sale</button></div>');
+    (x.offline ? '<div class="sumbox" style="background:var(--warnbg);margin:0 0 10px;font-size:13px">No internet: this sale is kept on the phone and gets its receipt number when it is sent. You can print the receipt now.</div><div class="acts"><button class="btn p" data-act="pr-open">' + PRINT_SVG + 'Print receipt</button><button class="btn s" data-act="page-new-sale">New sale</button></div>' : '') +
+    (x.offline ? '' : '<div class="acts"><button class="btn g" data-act="share" data-kind="sale" data-no="' + esc(x.no) + '">' + ICON.wa + 'WhatsApp receipt</button><button class="btn s" data-act="share" data-kind="sale" data-no="' + esc(x.no) + '">' + ICON.pdf + 'PDF receipt</button>' +
+    '<button class="btn p" data-act="pr-open">' + PRINT_SVG + 'Print receipt</button>' +
+    (x.balance > 0 ? '<button class="btn p" data-act="sale-collect">Collect balance</button>' : '') + (ST.s.online && x.balance > 0 ? '<button class="btn g" data-act="pl-open" data-k="sale" data-no="' + esc(x.no) + '">' + ICON.wa + 'Send MoMo pay link</button>' : '') + '<button class="btn s" data-act="page-new-sale">New sale</button></div>'));
 }
 
 /* ---------- sales list + owing ---------- */
@@ -1176,8 +1228,17 @@ function makePdf(kind, no) {
   api('apiPdf', kind, no).then(function (r) {
     var wa = 'https://wa.me/' + (r.wa || '') + '?text=' + encodeURIComponent(r.text);
     var sms = 'sms:' + (r.wa ? '+' + r.wa : '') + '?body=' + encodeURIComponent(r.text);
-    var html = '<a class="btn g w" target="_blank" rel="noopener" href="' + esc(wa) + '">' + ICON.wa + 'Send on WhatsApp' + (r.wa ? '' : ' (pick contact)') + '</a>' +
+    ST.pdfFile = null;
+    if (r.file) { try { var bin = atob(r.file), u8 = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); ST.pdfFile = new File([u8], r.fileName || (no + '.pdf'), { type: 'application/pdf' }); } catch (e) { } }
+    var canShare = !!(ST.pdfFile && navigator.canShare && navigator.canShare({ files: [ST.pdfFile] }));
+    if (ST.pdfUrl) try { URL.revokeObjectURL(ST.pdfUrl); } catch (e) { }
+    ST.pdfUrl = ST.pdfFile ? URL.createObjectURL(ST.pdfFile) : '';
+    var html = (canShare ? '<button class="btn g w" data-act="share-file">' + ICON.pdf + 'Send PDF file (WhatsApp, email…)</button>' +
+        '<div class="muted" style="font-size:12.5px;margin:6px 0 10px">Sends only the PDF, nothing else. Pick WhatsApp, then the person.</div>' :
+        (ST.pdfFile ? '<a class="btn g w" download="' + esc(ST.pdfFile.name) + '" href="' + esc(ST.pdfUrl) + '">' + ICON.pdf + 'Download PDF file</a><div class="muted" style="font-size:12.5px;margin:6px 0 10px">Then attach it in WhatsApp or email.</div>' : '')) +
+      '<a class="btn ' + (canShare || ST.pdfFile ? 's' : 'g') + ' w" target="_blank" rel="noopener" href="' + esc(wa) + '">' + ICON.wa + 'Send as a link on WhatsApp' + (r.wa ? '' : ' (pick contact)') + '</a>' +
       '<div class="acts"><a class="btn s" href="' + esc(sms) + '">Send by SMS</a><a class="btn s" target="_blank" rel="noopener" href="' + esc(r.url) + '">' + ICON.pdf + 'Open PDF</a></div>' +
+      '<div class="muted" style="font-size:12.5px;margin-top:6px">To print on paper (A4): tap <b>Open PDF</b>, then the printer icon or <b>⋮ → Print</b>.</div>' +
       '<button class="btn s w" style="margin-top:8px" data-act="copy" data-t="' + esc(r.url) + '">Copy link</button>' +
       (r.wa ? '' : '<div class="muted" style="margin-top:8px">No phone number saved for this client, so WhatsApp will ask you to pick the contact.</div>');
     if ($('#sh-b')) $('#sh-b').innerHTML = html; else openSheet('<h2>Ready</h2>' + html);
@@ -1310,7 +1371,7 @@ function syncQueue(manual) {
     var it = q2[0];
     api(it.fn, it.arg).then(function () { sent++; qSet(qGet().slice(1)); next(); })
       .catch(function (e) {
-        if (isNetErr(e)) { syncing = false; return; }
+        if (isNetErr(e) || /Trial ended/.test(e.message)) { syncing = false; return; }   // keep it on the phone
         toast('Could not send "' + it.label + '": ' + e.message, true); qSet(qGet().slice(1)); next();
       });
   })();
@@ -1326,6 +1387,8 @@ function renderMoreExtra() {
   if (q.length) h += '<div class="card" style="margin-top:12px"><h3>Waiting to send (' + q.length + ')</h3>' + q.map(function (it, i) {
     return '<div class="kv"><span>' + esc(it.label) + '<br><small class="muted">' + esc(new Date(it.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) + '</small></span><button class="link" style="color:var(--bad)" data-act="q-del" data-i="' + i + '">Remove</button></div>';
   }).join('') + '<button class="btn p w" style="margin-top:8px" data-act="sync">Send now</button></div>';
+  h += onlineCard();
+  if (ST.user && ST.user.owner) h += '<div class="card" style="margin-top:12px"><h3>Backup</h3><div class="muted">A full copy of your Sheet is saved in Google Drive every Sunday (folder <b>Backups</b>), keeping the last 8.' + (ST.s && ST.s.lastBackup ? ' Last backup: <b>' + esc(ST.s.lastBackup) + '</b>.' : '') + '</div><button class="btn s w" style="margin-top:8px" data-act="backup-now">Back up now</button></div>';
   if (window.KG_PWA) {
     if (window.KG_INSTALL) h += '<button class="btn p w" style="margin-top:12px" data-act="install">Install app on this phone</button>';
     h += '<div class="card" style="margin-top:12px"><h3>Offline app</h3><div class="muted">Works without internet. New sales, estimates, payments, expenses, stock and job updates are kept on this phone and sent when you are back online.</div>' +
@@ -1348,7 +1411,7 @@ var EST_RULES_DEFAULT = {
   pb_tape_item: 'Joint tape (roll)', pb_tape_per_m2: 1.5, pb_tape_roll: 90,
   pb_comp_item: 'Jointing compound (bag)', pb_comp_per_m2: 0.97, pb_comp_bag: 25,
   fix_item: 'Wall fixings (box)', fix_per_m: 2, fix_per_box: 100,
-  add_cornice: 'No', cornice_item: 'Plaster cornice', cornice_len: 2.4,
+  add_cornice: 'No', cornice_item: 'Plaster cornice', cornice_len: 2.4, lab_cornice_corner: 'Cornice',
   ac_tile_item: 'Acoustic ceiling tile 600x600', ac_tile_len: 0.6, ac_tile_wid: 0.6, ac_waste: 5,
   ac_main_item: 'Main T-grid 3.6m', ac_main_len: 3.6, ac_main_space: 1.2,
   ac_ct12_item: 'Cross T 1.2m', ac_ct06_item: 'Cross T 0.6m',
@@ -1398,7 +1461,7 @@ function estimateCeilings(rooms, waste, R, frame) {
   var wAC = (waste.ac === '' || waste.ac === undefined ? R.ac_waste : n(waste.ac)) / 100;
   var wM = n(R.metal_waste) / 100, ceil = Math.ceil;
   var out = { rooms: [], pbArea: 0, pbWood: 0, acArea: 0, ptArea: 0, ptBoard: 0, ptLen: 0, walls: 0, angleWalls: 0, lines: [], labour: [] };
-  var t = { pbMain: 0, pbOmega: 0, pbAngle: 0, pbHangers: 0, pbWalls: 0, acMain: 0, acAngle: 0, acHangers: 0, cornice: 0, corniceM: 0, corniceRooms: 0, ptStuds: 0, ptTrack: 0, ptIns: 0, ptDoors: 0, ptWalls: 0 };
+  var t = { pbMain: 0, pbOmega: 0, pbAngle: 0, pbHangers: 0, pbWalls: 0, acMain: 0, acAngle: 0, acHangers: 0, cornice: 0, corniceM: 0, corniceRooms: 0, corners: 0, ptStuds: 0, ptTrack: 0, ptIns: 0, ptDoors: 0, ptWalls: 0 };
   var sheetA = R.pb_sheet_len * R.pb_sheet_wid, sheetPT = sheetA, sides = Math.max(1, Math.min(2, Math.round(n(R.pt_sides)) || 2));
   (rooms || []).forEach(function (rm) {
     if (rm.type === 'PT') {
@@ -1436,7 +1499,10 @@ function estimateCeilings(rooms, waste, R, frame) {
       b.tiles = ceil(g.area / (R.ac_tile_len * R.ac_tile_wid) * (1 + wAC));
       out.acArea += g.area; t.acMain += b.main; t.acAngle += b.angle; t.acHangers += b.hangers; out.angleWalls += g.walls;
     }
-    if (rm.cornice) { b.cornice = ceil(g.walls / (n(R.cornice_len) || 2.4)); t.cornice += b.cornice; t.corniceM += g.walls; t.corniceRooms++; }
+    if (rm.cornice) {
+      b.cornice = ceil(g.walls / (n(R.cornice_len) || 2.4)); t.cornice += b.cornice; t.corniceM += g.walls; t.corniceRooms++;
+      t.corners += b.cornice;   // labour is per cornice piece fixed
+    }
     out.walls += g.walls; out.rooms.push(b);
   });
   var add = function (item, qty, why) { qty = Math.ceil(qty - 1e-9); if (item && qty > 0) out.lines.push({ item: item, qty: qty, why: why }); };
@@ -1487,6 +1553,7 @@ function estimateCeilings(rooms, waste, R, frame) {
   if (String(R.add_labour).toLowerCase() !== 'no') {
     var lab = {};
     var put = function (names, area) { String(names || '').split(',').map(function (x) { return x.trim(); }).filter(String).forEach(function (nm) { lab[nm] = (lab[nm] || 0) + area; }); };
+    if (t.corners && String(R.lab_cornice_corner || '').trim()) lab[String(R.lab_cornice_corner).trim()] = (lab[String(R.lab_cornice_corner).trim()] || 0) + t.corners;
     if (pbMetal > 0.001) put(R.lab_pb, pbMetal); if (out.pbWood) put(R.lab_pb_wood, out.pbWood); if (out.acArea) put(R.lab_ac, out.acArea); if (out.ptArea) put(R.lab_pt, out.ptArea);
     out.labour = Object.keys(lab).map(function (k) { return { desc: k, qty: r1(lab[k]) }; });
   }
@@ -1559,6 +1626,7 @@ function renderEzRooms() {
         : '<div class="row2">' + fld('Length (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="L" value="' + esc(rm.L) + '" placeholder="e.g. 6">') + fld('Width (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="W" value="' + esc(rm.W) + '" placeholder="e.g. 4">') + '</div>' +
           (sh === 'L' ? '<div class="muted" style="margin:-4px 0 6px">Length and width of the whole outside, then the corner that is cut out:</div><div class="row2">' + fld('Cut-out length (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="cutL" value="' + esc(rm.cutL) + '">') + fld('Cut-out width (m)', '<input class="in" inputmode="decimal" data-rm="' + i + '" data-f="cutW" value="' + esc(rm.cutW) + '">') + '</div>' : '')) +
       '<label class="chkline" style="margin:2px 0 6px"><input type="checkbox" data-rmc="' + i + '"' + (rm.cornice ? ' checked' : '') + '> Cornice in this room</label>' +
+'<span hidden></span>' +
       '<div class="ezline" id="ez-line-' + i + '"></div></div>';
   }).join('');
 }
@@ -1574,7 +1642,7 @@ function renderEzResult() {
     if (b.type === 'PT') { el.innerHTML = '<b>' + r1(b.area) + ' m²</b> (' + r1(b.L) + ' × ' + r1(b.H) + ' m' + (b.doors ? ' less ' + b.doors + ' door' + (b.doors === 1 ? '' : 's') : '') + ') · ' + b.sheets + ' boards · ' + b.studs + ' studs · ' + b.tracks + ' tracks' + (b.ins ? ' · <b>insulation ' + b.ins + ' roll' + (b.ins === 1 ? '' : 's') + '</b>' : ''); return; }
     el.innerHTML = '<b>' + r1(b.area) + ' m²</b> · walls ' + r1(b.walls) + ' m · ' +
       (b.type === 'PB' && b.frame === 'wood' ? b.sheets + ' boards · <b>wood noggings</b> (no metal)' : b.type === 'PB' ? b.sheets + ' boards · ' + b.angle + ' wall angle · main ' + r1(b.main) + ' m · Omega ' + r1(b.omega) + ' m'
-        : b.tiles + ' tiles · ' + b.angle + ' wall angle · main tee ' + r1(b.main) + ' m') + (b.cornice ? ' · <b>cornice ' + b.cornice + '</b>' : '');
+        : b.tiles + ' tiles · ' + b.angle + ' wall angle · main tee ' + r1(b.main) + ' m') + (b.cornice ? ' · <b>cornice ' + b.cornice + ' pcs</b>' : '');
   });
   var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
   var missing = r.lines.filter(function (l) { return !prods[l.item]; });
@@ -1594,14 +1662,14 @@ function putEstimator() {
   if (!r.lines.length) { toast('Type at least one room size first', true); return; }
   if (!e.rooms.frame && e.rooms.list.some(function (x) { return x.type === 'PB' && !x.frame; })) { askFrame(); return; }
   var names = estimatorItemNames(R);
-  var labNames = (R.lab_pb + ',' + R.lab_ac + ',' + R.lab_pt + ',' + R.lab_pb_wood).split(',').map(function (x) { return x.trim(); }).filter(String);
+  var labNames = (R.lab_pb + ',' + R.lab_ac + ',' + R.lab_pt + ',' + R.lab_pb_wood + ',' + R.lab_cornice_corner).split(',').map(function (x) { return x.trim(); }).filter(String);
   var oldRate = {}; e.materials.concat(e.labour).forEach(function (x) { if (!x.heading && n(x.rate)) oldRate[x.desc] = x.rate; });
   var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
   e.materials = e.materials.filter(function (m) { return m.heading || names.indexOf(m.desc) < 0; });
   r.lines.forEach(function (l) { var p = prods[l.item] || {}; e.materials.push({ desc: l.item, unit: p.unit || '', qty: l.qty, rate: oldRate[l.item] || p.estRate || 0 }); });
   if (r.labour.length) {
     e.labour = e.labour.filter(function (x) { return x.heading || labNames.indexOf(x.desc) < 0; });
-    r.labour.forEach(function (l) { var lb = ST.labour.filter(function (q) { return q.desc === l.desc; })[0] || {}; e.labour.push({ desc: l.desc, unit: lb.unit || 'sqm', qty: l.qty, rate: oldRate[l.desc] || lb.rate || '' }); });
+    r.labour.forEach(function (l) { var lb = ST.labour.filter(function (q) { return q.desc === l.desc; })[0] || {}; e.labour.push({ desc: l.desc, unit: lb.unit || (l.desc === R.lab_cornice_corner ? 'pc' : 'sqm'), qty: l.qty, rate: oldRate[l.desc] || lb.rate || '' }); });
   }
   if (!e.title) { var ct = r.pbArea && r.acArea ? 'Plasterboard & acoustic ceiling' : r.acArea ? 'Acoustic ceiling' : r.pbArea ? 'Plasterboard ceiling' : ''; e.title = ct && r.ptArea ? ct + ' & partition works' : ct || 'Partition works'; }
   closePage(); renderEstForm(); saveDraft();
@@ -1703,6 +1771,300 @@ function addPastedRooms(mode) {
   r.rooms.forEach(function (x) { list.push(x.type === 'PT' ? { name: x.name, type: 'PT', L: x.L, H: x.H, doors: x.doors || '', ins: !!x.ins } : { name: x.name, type: x.type, shape: 'rect', L: x.L, W: x.W, cornice: !!x.cornice, frame: x.type === 'PB' && x.frame && x.frame !== (ST.est.rooms.frame || 'metal') ? x.frame : undefined }); });
   ST.paste.text = ''; closeSheet(); renderEzRooms(); renderEzResult(); saveDraft();
   toast(r.rooms.length + ' room' + (r.rooms.length === 1 ? '' : 's') + ' added');
+}
+
+/* ============ LOW STOCK ============ */
+function lowList() { return (ST.products || []).filter(function (p) { return p.stock !== null && ((p.low !== null && p.stock <= p.low) || p.stock <= 0); }); }
+function renderLowCard() {
+  var el = $('#home-low'); if (!el) return;
+  var l = ST.mods && ST.mods.stock === false ? [] : lowList();
+  if (!l.length) { el.innerHTML = ''; return; }
+  var txt = 'Low stock at ' + ((ST.s && ST.s.name) || 'the shop') + ':\n' + l.map(function (p) { return '- ' + p.item + ': ' + p.stock + ' ' + p.unit + ' left'; }).join('\n');
+  el.innerHTML = '<div class="card" style="background:var(--badbg)"><h3 style="color:var(--bad)">Low stock (' + l.length + ')</h3>' +
+    l.slice(0, 6).map(function (p) { return kv(p.item, p.stock + ' ' + p.unit + ' left'); }).join('') + (l.length > 6 ? '<div class="muted">+ ' + (l.length - 6) + ' more</div>' : '') +
+    '<div class="acts"><a class="btn g" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(txt) + '">' + ICON.wa + 'Send list on WhatsApp</a><button class="btn s" data-act="nav" data-v="stock">Receive stock</button></div></div>';
+}
+
+/* ============ BARCODES ============ */
+function findCode(code) { code = String(code || '').trim(); return code ? (ST.products || []).filter(function (p) { return p.code && p.code === code; })[0] : null; }
+function scanAdd(code) {
+  var p = findCode(code);
+  if (p) { cartAdd(p.item); toast('Added: ' + p.item); return true; }
+  if (ST.user && ST.user.owner) linkCodeSheet(code); else toast('Unknown barcode ' + code + '. Ask the owner to link it to a product.', true);
+  return false;
+}
+function linkCodeSheet(code) {
+  stopScan();
+  openSheet('<h2>New barcode</h2><div class="muted" style="margin-bottom:10px">Code <b>' + esc(code) + '</b> is not linked to any product yet. Pick the product it belongs to.</div>' +
+    fld('Product', '<select class="in" id="bc-item">' + opts(ST.products.map(function (p) { return p.item; }), '') + '</select>') +
+    '<button class="btn p w" data-act="bc-link" data-code="' + esc(code) + '">Link and add to sale</button>');
+}
+var SCAN = null;
+function stopScan() { if (SCAN) { SCAN.on = false; try { SCAN.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { } SCAN = null; } }
+function openScan() {
+  if (!('BarcodeDetector' in window) || !navigator.mediaDevices) {
+    openSheet('<h2>Scan barcode</h2><div class="muted">This phone\'s browser cannot scan with the camera. You can type the number in the search box and press Enter, or use a Bluetooth / USB barcode scanner: it types the code into the search box for you.</div>');
+    return;
+  }
+  openSheet('<h2>Scan barcode</h2><video id="scan-v" playsinline muted style="width:100%;border-radius:12px;background:#000;max-height:46vh;object-fit:cover"></video>' +
+    '<div class="muted" id="scan-msg" style="margin-top:8px">Point the camera at the barcode. Each scan adds 1 to the sale.</div><button class="btn s w" style="margin-top:10px" data-act="scan-stop">Done</button>');
+  var det; try { det = new BarcodeDetector(); } catch (e) { $('#scan-msg').textContent = 'Scanner not available: ' + e.message; return; }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(function (st) {
+    var v = $('#scan-v'); if (!v) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
+    SCAN = { on: true, stream: st, last: '', at: 0 }; v.srcObject = st; v.play();
+    (function tick() {
+      if (!SCAN || !SCAN.on) return;
+      det.detect(v).then(function (codes) {
+        if (codes && codes.length && SCAN) {
+          var c = codes[0].rawValue, now = Date.now();
+          if (c && (c !== SCAN.last || now - SCAN.at > 2000)) { SCAN.last = c; SCAN.at = now; if (scanAdd(c)) { var m = $('#scan-msg'); if (m) m.textContent = 'Added ' + findCode(c).item + '. Scan the next one, or tap Done.'; } }
+        }
+      }).catch(function () { }).then(function () { if (SCAN && SCAN.on) setTimeout(tick, 250); });
+    })();
+  }).catch(function (e) { var m = $('#scan-msg'); if (m) m.textContent = 'Camera not allowed: ' + e.message; });
+}
+
+/* ============ MESSAGE MANY CLIENTS ============ */
+function bcastStart() {
+  var all = (ST.clients || []).filter(function (c) { return c.phone; });
+  var d90 = iso(new Date(Date.now() - 90 * 864e5));
+  ST.bc = { groups: { 'All with a phone': all, 'Owing me': all.filter(function (c) { return c.owes > 0; }), 'Active last 90 days': all.filter(function (c) { return c.lastIso >= d90; }), 'Not seen for 90+ days': all.filter(function (c) { return c.lastIso && c.lastIso < d90; }) }, g: 'All with a phone' };
+  var s = ST.s || {};
+  openSheet('<h2>Message many clients</h2><div class="muted" style="margin-bottom:10px">WhatsApp opens for each client in turn with your message ready: you tap Send, then come back for the next. {client} becomes each person\'s name.</div>' +
+    '<label class="f"><span>Who</span><div class="chips" id="bc-g" style="margin:0">' + Object.keys(ST.bc.groups).map(function (k) { return '<button class="chip' + (k === ST.bc.g ? ' on' : '') + '" data-act="bc-g" data-v="' + esc(k) + '">' + esc(k) + ' (' + ST.bc.groups[k].length + ')</button>'; }).join('') + '</div></label>' +
+    fld('Message', '<textarea class="in" id="bc-t" style="min-height:150px">Hello {client}, greetings from ' + esc(s.name || 'us') + '! </textarea>') +
+    '<button class="btn p w" data-act="bc-go">Start</button>');
+}
+function bcastStep(i) {
+  var list = ST.bc.groups[ST.bc.g], c = list[i];
+  if (!c) { closeSheet(); toast('Done: ' + list.length + ' client' + (list.length === 1 ? '' : 's')); return; }
+  var txt = ST.bc.text.replace(/\{client\}/g, c.name.split(' ')[0] || c.name), wa = String(c.phone).replace(/\D/g, '');
+  if (/^0\d{9}$/.test(wa)) wa = '233' + wa.slice(1);
+  openSheet('<h2>' + (i + 1) + ' of ' + list.length + '</h2><div style="font-weight:700">' + esc(c.name) + '</div><div class="muted">' + esc(c.phone) + '</div>' +
+    '<div class="sumbox" style="margin:10px 0;white-space:pre-wrap;font-size:14px">' + esc(txt) + '</div>' +
+    '<a class="btn g w" target="_blank" rel="noopener" data-act="bc-sent" data-i="' + i + '" href="https://wa.me/' + esc(wa) + '?text=' + encodeURIComponent(txt) + '">' + ICON.wa + 'Send on WhatsApp</a>' +
+    '<div class="acts"><button class="btn s" data-act="bc-next" data-i="' + (i + 1) + '">Skip / next</button><button class="btn s" data-act="sheet-close">Stop</button></div>');
+}
+/* ---- MoMo pay links (Paystack) ---- */
+function payLinkSheet(kind, no) {
+  var x = ST.page && ST.page.data || {}, bal = n(x.balance);
+  openSheet('<h2>MoMo pay link</h2><div class="muted" style="margin-bottom:10px">' + esc(no) + ' · balance <b>' + money(bal) + '</b>. The client opens the link and pays with Mobile Money, card or bank. The payment is recorded here by itself.</div>' +
+    fld('Amount to ask for (GH₵)', '<input class="in" inputmode="decimal" id="pl-amt" value="' + esc(bal) + '">') +
+    '<button class="btn p w" data-act="pl-make" data-k="' + esc(kind) + '" data-no="' + esc(no) + '">Create link</button><div id="pl-out" style="margin-top:12px"></div>');
+}
+function payLinkMake(kind, no) {
+  busy(api('apiPayLink', { kind: kind, no: no, amount: n($('#pl-amt').value) }), 'Creating link…').then(function (r) {
+    var wa = String(r.phone || '').replace(/\D/g, ''); if (/^0\d{9}$/.test(wa)) wa = '233' + wa.slice(1);
+    $('#pl-out').innerHTML = '<div class="sumbox" style="word-break:break-all;font-size:13px">' + esc(r.url) + '</div>' +
+      '<a class="btn g w" style="margin-top:8px" target="_blank" rel="noopener" href="https://wa.me/' + esc(wa) + '?text=' + encodeURIComponent(r.text) + '">' + ICON.wa + 'Send on WhatsApp</a>' +
+      '<div class="acts"><a class="btn s" href="sms:' + esc(r.phone || '') + '?body=' + encodeURIComponent(r.text) + '">Send by SMS</a><button class="btn s" data-act="pl-copy" data-u="' + esc(r.url) + '">Copy link</button></div>' +
+      (r.charge !== r.amount ? '<div class="muted" style="font-size:12.5px;margin-top:6px">The client pays ' + money(r.charge) + ' (includes the Paystack fee). ' + money(r.amount) + ' is recorded.</div>' : '');
+  }).catch(function () { });
+}
+function onlineCard() {
+  if (!(ST.s && ST.s.online && ST.user && ST.user.owner)) return '';
+  return '<div class="card" style="margin-top:12px"><h3>Online payments (MoMo)</h3><div class="muted">Paid links are recorded by themselves every 10 minutes.</div><div id="ol-list"></div>' +
+    '<div class="acts"><button class="btn s" data-act="ol-check">Check now</button><button class="btn s" data-act="ol-list">Show recent links</button></div></div>';
+}
+function xAct(a, d, el) {
+  switch (a) {
+    case 'pl-open': payLinkSheet(d.k, d.no); return true;
+    case 'pl-make': payLinkMake(d.k, d.no); return true;
+    case 'pl-copy': try { navigator.clipboard.writeText(d.u).then(function () { toast('Link copied'); }); } catch (e) { toast('Could not copy', true); } return true;
+    case 'ol-check': busy(api('apiCheckOnline'), 'Checking payments…').then(function (r) { toast(r.recorded ? r.recorded + ' new online payment' + (r.recorded === 1 ? '' : 's') + ' recorded' : 'No new online payments'); }).catch(function () { }); return true;
+    case 'ol-list': busy(api('apiOnlineList'), 'Loading…').then(function (l) {
+      $('#ol-list').innerHTML = l.length ? l.slice(0, 15).map(function (x) { return kv(x.no + ' · ' + x.client + ' · ' + x.created, money(x.amount) + ' · ' + x.status); }).join('') : '<div class="empty" style="padding:6px">No links yet.</div>'; }).catch(function () { }); return true;
+    case 'scan': openScan(); return true;
+    case 'scan-stop': stopScan(); closeSheet(); return true;
+    case 'bc-link':
+      var it = $('#bc-item').value;
+      busy(api('apiSetBarcode', { code: d.code, item: it }), 'Linking…').then(function (r) { ST.products = r.products; closeSheet(); cartAdd(it); renderStock(); toast('Linked and added: ' + it); }).catch(function () { });
+      return true;
+    case 'bc-start': if (!ST.clients) { loadClients(); toast('Loading clients, tap again in a moment'); return true; } bcastStart(); return true;
+    case 'bc-g': ST.bc.g = d.v; $$('#bc-g .chip').forEach(function (b) { b.classList.toggle('on', b.dataset.v === d.v); }); return true;
+    case 'bc-go': ST.bc.text = $('#bc-t').value; if (!ST.bc.groups[ST.bc.g].length) { toast('Nobody in this group has a phone number', true); return true; } bcastStep(0); return true;
+    case 'bc-next': bcastStep(+d.i); return true;
+    case 'backup-now': busy(api('apiBackupNow'), 'Saving a backup copy…').then(function (r) { toast('Backup saved: ' + r.name); ST.s.lastBackup = 'today'; renderMoreExtra(); }).catch(function () { }); return true;
+  }
+  return false;
+}
+
+/* ============ PRINTING: small receipts (58 / 80 mm receipt printers) and normal printers ============ */
+function paperMm() { return /80/.test(String((ST.s && ST.s.paper) || '')) ? 80 : 58; }
+function receiptHtml(x) {
+  var s = ST.s || {}, mm = paperMm(), w = mm === 80 ? 72 : 48, logo = s.logo || LOGO;
+  var row = function (a, b, bold) { return '<tr' + (bold ? ' class="b"' : '') + '><td>' + a + '</td><td class="r">' + b + '</td></tr>'; };
+  var m = function (v) { return money(v).replace('GH₵ ', ''); };
+  return '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(x.no) + '</title><style>' +
+    '@page{size:' + mm + 'mm auto;margin:0}*{box-sizing:border-box}body{margin:0;font:12px/1.35 Arial,Helvetica,sans-serif;color:#000}' +
+    '.w{width:' + w + 'mm;margin:0 auto;padding:3mm 0}.c{text-align:center}img{max-width:' + Math.round(w * 0.45) + 'mm;max-height:18mm;display:block;margin:0 auto 2mm;filter:grayscale(1)}' +
+    'h1{font-size:14px;margin:0}hr{border:0;border-top:1px dashed #000;margin:2mm 0}table{width:100%;border-collapse:collapse}td{vertical-align:top;padding:.4mm 0}.r{text-align:right;white-space:nowrap}' +
+    '.b td{font-weight:bold}.big td{font-size:15px;font-weight:bold}.s{font-size:10.5px}</style></head><body><div class="w">' +
+    (logo && !/svg\+xml/.test(logo.slice(0, 30)) ? '<img src="' + logo + '">' : '') +
+    '<div class="c"><h1>' + esc(s.name || '') + '</h1>' + (s.phone ? '<div class="s">Tel: ' + esc(s.phone) + '</div>' : '') + (s.email ? '<div class="s">' + esc(s.email) + '</div>' : '') + '</div><hr>' +
+    '<table>' + row('Receipt', esc(x.no)) + row('Date', esc(x.dateNice || '') + ' ' + esc(x.time || '')) + (x.customer ? row('Customer', esc(x.customer)) : '') + (x.by ? row('Served by', esc(x.by)) : '') + '</table><hr>' +
+    '<table>' + (x.lines || []).map(function (l) { return '<tr><td colspan="2">' + esc(l.item) + '</td></tr><tr><td class="s">&nbsp; ' + esc(l.qty) + ' × ' + m(l.price) + '</td><td class="r">' + m(l.amount) + '</td></tr>'; }).join('') + '</table><hr>' +
+    '<table>' + row('Subtotal', m(x.subtotal)) + (n(x.discount) ? row('Discount', '-' + m(x.discount)) : '') + '<tr class="big"><td>TOTAL GH₵</td><td class="r">' + m(x.total) + '</td></tr>' +
+    row('Paid', m(x.paid)) + (n(x.balance) > 0 ? row('Balance', m(x.balance), true) : '') + (n(x.change) > 0 ? row('Change', m(x.change)) : '') + '</table><hr>' +
+    (n(x.balance) > 0 && (s.momo || s.bank) ? '<div class="s">Pay balance: ' + (s.momo ? 'MoMo ' + esc(s.momo) : '') + (s.momo && s.bank ? ' · ' : '') + (s.bank ? esc(s.bank) : '') + '</div><hr>' : '') +
+    '<div class="c">' + esc(s.tagline || 'Thank you for your business!') + '</div>' + (s.powered ? '<div class="c s" style="margin-top:2mm;color:#444">' + esc(s.powered) + '</div>' : '') +
+    '</div></body></html>';
+}
+/* plain text for receipt printers through the RawBT app (Bluetooth printers) */
+function receiptText(x) {
+  var s = ST.s || {}, W = paperMm() === 80 ? 48 : 32, m = function (v) { return money(v).replace('GH₵ ', ''); };
+  var ctr = function (t) { t = String(t).slice(0, W); var p = Math.floor((W - t.length) / 2); return new Array(p + 1).join(' ') + t; };
+  var lr = function (a, b) { a = String(a); b = String(b); var sp = W - a.length - b.length; if (sp < 1) { a = a.slice(0, W - b.length - 1); sp = 1; } return a + new Array(sp + 1).join(' ') + b; };
+  var line = new Array(W + 1).join('-'), out = [];
+  out.push(ctr(s.name || '')); if (s.phone) out.push(ctr('Tel: ' + s.phone)); out.push(line);
+  out.push(lr('Receipt', x.no)); out.push(lr('Date', (x.dateNice || '') + ' ' + (x.time || ''))); if (x.customer) out.push(lr('Customer', x.customer)); out.push(line);
+  (x.lines || []).forEach(function (l) { out.push(String(l.item).slice(0, W)); out.push(lr('  ' + l.qty + ' x ' + m(l.price), m(l.amount))); });
+  out.push(line); out.push(lr('Subtotal', m(x.subtotal))); if (n(x.discount)) out.push(lr('Discount', '-' + m(x.discount)));
+  out.push(lr('TOTAL GHS', m(x.total))); out.push(lr('Paid', m(x.paid))); if (n(x.balance) > 0) out.push(lr('BALANCE', m(x.balance))); if (n(x.change) > 0) out.push(lr('Change', m(x.change)));
+  if (n(x.balance) > 0 && s.momo) out.push('Pay balance: MoMo ' + s.momo);
+  out.push(line); out.push(ctr(s.tagline || 'Thank you!')); if (s.powered) out.push(ctr(String(s.powered).split(' · ')[0]));
+  return out.join('\n').replace(/₵/g, 'GHS').replace(/[^\x0A\x20-\x7E]/g, function (c) { return { '×': 'x', '·': '-', '–': '-', '—': '-' }[c] || '?'; });
+}
+function printHtml(html) {
+  var f = document.createElement('iframe'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(f);
+  var d = f.contentWindow.document; d.open(); d.write(html); d.close();
+  setTimeout(function () { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { toast('Printing is not available here', true); } setTimeout(function () { f.remove(); }, 60000); }, 450);
+}
+function rawbtPrint(text) {
+  var bytes = [27, 64]; // ESC @ (start)
+  for (var i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i) & 255);
+  bytes.push(10, 10, 10, 29, 86, 66, 0); // feed + cut
+  var bin = ''; bytes.forEach(function (b) { bin += String.fromCharCode(b); });
+  location.href = 'intent:base64,' + btoa(bin) + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+}
+function printSheet(x) {
+  ST.printSale = x;
+  openSheet('<h2>Print receipt ' + esc(x.no) + '</h2><div class="muted" style="margin-bottom:12px">Paper: <b>' + paperMm() + ' mm</b> (change in Settings → Receipt paper).</div>' +
+    '<button class="btn p w" data-act="pr-go">Print</button>' +
+    '<div class="muted" style="margin:6px 0 12px;font-size:13px">Opens the phone\'s print screen. Pick your printer: Wi-Fi printer, or a receipt printer added through its printing app.</div>' +
+    '<button class="btn s w" data-act="pr-rawbt">Quick print to Bluetooth receipt printer</button>' +
+    '<div class="muted" style="margin-top:6px;font-size:13px">Needs the free <b>RawBT</b> app from Play Store, connected once to the printer. Prints straight away with no print screen.</div>');
+}
+
+/* ============ RECIPE ESTIMATOR (any trade: tiling, painting, skimming…) ============
+ * Rules come from the "Trade Recipes" tab. Each area: a kind of work + sizes + picks (e.g. tile size) + optional extras. */
+function rcpWorks() {
+  var out = {}, order = [];
+  (ST.s.recipes || []).forEach(function (r) {
+    var k = r.trade + ' · ' + r.work;
+    if (!out[k]) { out[k] = { key: k, trade: r.trade, work: r.work, from: r.from, rows: [] }; order.push(k); }
+    out[k].rows.push(r);
+  });
+  return order.map(function (k) { return out[k]; });
+}
+function rcpWork(key) { return rcpWorks().filter(function (w) { return w.key === key; })[0] || null; }
+function rcpGroups(w) { var g = []; w.rows.forEach(function (r) { if (r.group && g.indexOf(r.group) < 0) g.push(r.group); }); return g; }
+function rcpCalc(areas) {
+  var tot = {}, order = [], per = [];
+  (areas || []).forEach(function (a) {
+    var w = rcpWork(a.work); if (!w) { per.push(null); return; }
+    var L = n(a.L), W = n(a.W), A = L * W, len = w.from === 'wall' ? L : 2 * (L + W), info = { area: A, len: len, lines: [] };
+    if (!A) { per.push(info); return; }
+    var picks = a.pick || {}, opts = a.opt || {}, pcs = a.pcs || {};
+    w.rows.forEach(function (r) {
+      if (r.group) { var first = w.rows.filter(function (x) { return x.group === r.group; })[0].item; if ((picks[r.group] || first) !== r.item) return; }
+      if (r.optional && !opts[r.item]) return;
+      var units = r.by === 'm' ? len : r.by === 'piece' ? n(pcs[r.item]) : A;
+      if (!units) return;
+      var need = units * r.qty * (1 + n(r.waste) / 100);
+      var k = r.type + '|' + r.item;
+      if (!tot[k]) { tot[k] = { item: r.item, type: r.type, need: 0, units: 0, pack: r.pack, packUnit: r.packUnit, by: r.by, qty: r.qty }; order.push(k); }
+      if (tot[k].qty !== r.qty) tot[k].qty = null;
+      tot[k].need += need; tot[k].units += units;
+      info.lines.push(r.item);
+    });
+    per.push(info);
+  });
+  var unitTxt = { m2: 'm²', m: 'm', piece: 'pcs' };
+  var lines = order.map(function (k) {
+    var t = tot[k], q = t.type === 'Labour' ? r1(t.need) : Math.ceil(t.need / (t.pack || 1) - 1e-9);
+    var why = r1(t.units) + ' ' + unitTxt[t.by] + (t.qty !== 1 && t.qty !== null ? ' × ' + t.qty : '') + (t.type === 'Labour' ? '' : (t.pack !== 1 ? ' ÷ ' + t.pack + ' ' + (t.packUnit || '') : '') + ' (incl. waste)');
+    return { item: t.item, type: t.type, qty: q, why: why };
+  }).filter(function (l) { return l.qty > 0; });
+  return { lines: lines, per: per };
+}
+function rcpNames() { return (ST.s.recipes || []).map(function (r) { return r.item; }); }
+function openRecipe() {
+  var e = ST.est; if (!e.recipe || !Array.isArray(e.recipe.areas)) e.recipe = { areas: [] };
+  var works = rcpWorks();
+  if (!works.length) { toast('No recipes yet: add rows in the Trade Recipes tab of the Sheet', true); return; }
+  if (!e.recipe.areas.length) e.recipe.areas.push({ name: 'Area 1', work: works[0].key, L: '', W: '' });
+  ST.page = { kind: 'recipe' };
+  openPage('Measure & estimate',
+    '<div class="card"><div class="muted">For each area pick the <b>work</b>, type the sizes, then choose options like <b>tile size</b> and extras like <b>skirting</b> or <b>design tiles</b>. The app works out boxes, bags and labour, then puts them into the estimate with your prices. Change the figures any time in the <b>Trade Recipes</b> tab of the Sheet.</div></div>' +
+    '<div id="rc-areas"></div><button class="btn s w" data-act="rc-add" style="margin-bottom:12px">+ Add area</button><div id="rc-result"></div>' +
+    '<button class="btn p w" data-act="rc-put" style="margin:6px 0 30px">Put into estimate</button>');
+  renderRcAreas(); renderRcResult();
+}
+function renderRcAreas() {
+  var works = rcpWorks(), list = ST.est.recipe.areas;
+  $('#rc-areas').innerHTML = list.map(function (a, i) {
+    var w = rcpWork(a.work) || works[0]; a.work = w.key;
+    var wall = w.from === 'wall', groups = rcpGroups(w), optRows = w.rows.filter(function (r) { return r.optional; });
+    return '<div class="card"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input class="in" data-ra="' + i + '" data-f="name" value="' + esc(a.name) + '" placeholder="Area name, e.g. Living room" style="flex:1;font-weight:700">' +
+      '<button class="del" data-act="rc-del" data-i="' + i + '" aria-label="Remove area">×</button></div>' +
+      fld('Work', '<select class="in" data-rw="' + i + '">' + works.map(function (x) { return '<option value="' + esc(x.key) + '"' + (x.key === w.key ? ' selected' : '') + '>' + esc(x.work) + ' (' + esc(x.trade) + ')</option>'; }).join('') + '</select>') +
+      '<div class="row2">' + fld(wall ? 'Wall length (m)' : 'Length (m)', '<input class="in" inputmode="decimal" data-ra="' + i + '" data-f="L" value="' + esc(a.L) + '" placeholder="e.g. 4">') +
+      fld(wall ? 'Height (m)' : 'Width (m)', '<input class="in" inputmode="decimal" data-ra="' + i + '" data-f="W" value="' + esc(a.W) + '" placeholder="e.g. ' + (wall ? '2.7' : '3.5') + '">') + '</div>' +
+      groups.map(function (g) {
+        var rows = w.rows.filter(function (r) { return r.group === g; }), cur = (a.pick || {})[g] || rows[0].item;
+        return '<label class="f"><span>' + esc(g) + '</span><div class="chips" style="margin:0">' + rows.map(function (r) { return '<button class="chip' + (r.item === cur ? ' on' : '') + '" data-act="rc-pick" data-i="' + i + '" data-g="' + esc(g) + '" data-v="' + esc(r.item) + '">' + esc(((/\d+(\.\d+)?\s*[x×]\s*\d+(\.\d+)?/i.exec(r.item) || [])[0] || r.item.replace(/\s*\((box|bag|pack|piece|bucket|sheet)\)\s*$/i, '')).replace(/\s*x\s*/i, '×')) + '</button>'; }).join('') + '</div></label>';
+      }).join('') +
+      optRows.map(function (r) {
+        var on = !!(a.opt || {})[r.item];
+        return '<label class="chkline" style="margin:4px 0"><input type="checkbox" data-ro="' + i + '" data-v="' + esc(r.item) + '"' + (on ? ' checked' : '') + '> ' + esc(r.item) + '</label>' +
+          (on && r.by === 'piece' ? '<div style="margin:2px 0 8px 28px">' + fld('How many pieces?', '<input class="in" inputmode="numeric" data-rp="' + i + '" data-v="' + esc(r.item) + '" value="' + esc((a.pcs || {})[r.item] || '') + '" placeholder="e.g. 12">') + '</div>' : '');
+      }).join('') +
+      '<div class="ezline" id="rc-line-' + i + '"></div></div>';
+  }).join('');
+}
+function renderRcResult() {
+  var e = ST.est, r = rcpCalc(e.recipe.areas); ST.rcLast = r;
+  e.recipe.areas.forEach(function (a, i) {
+    var el = $('#rc-line-' + i), p = r.per[i]; if (!el) return;
+    el.innerHTML = p && p.area ? '<b>' + r1(p.area) + ' m²</b>' + (p.len ? ' · ' + r1(p.len) + ' m ' + (rcpWork(a.work).from === 'wall' ? 'long' : 'round the room') : '') : '<span class="muted">Type the sizes to see this area.</span>';
+  });
+  var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
+  var labs = {}; ST.labour.forEach(function (l) { labs[l.desc] = l; });
+  var mats = r.lines.filter(function (l) { return l.type !== 'Labour'; }), lab = r.lines.filter(function (l) { return l.type === 'Labour'; });
+  var missing = mats.some(function (l) { return !prods[l.item]; }) || lab.some(function (l) { return !labs[l.item]; });
+  $('#rc-result').innerHTML = !r.lines.length ? '<div class="card"><div class="empty" style="padding:8px">Type the sizes of at least one area.</div></div>' :
+    '<div class="card"><h3>Materials for all areas</h3><table class="lines">' + mats.map(function (l) { var p = prods[l.item]; return '<tr><td>' + esc(l.item) + '<div class="muted">' + esc(l.why) + (p ? '' : ' · <b style="color:var(--bad)">not in Products</b>') + '</div></td><td class="r"><b>' + l.qty + '</b> ' + esc(p ? p.unit : '') + '</td></tr>'; }).join('') + '</table>' +
+    (lab.length ? '<div class="sec" style="margin-top:12px">Labour</div><table class="lines">' + lab.map(function (l) { return '<tr><td>' + esc(l.item) + (labs[l.item] ? '' : '<div class="muted"><b style="color:var(--bad)">not in Labour tab</b></div>') + '</td><td class="r"><b>' + l.qty + '</b> ' + esc((labs[l.item] || {}).unit || 'm²') + '</td></tr>'; }).join('') + '</table>' : '') +
+    (missing ? '<div class="sumbox" style="background:var(--warnbg);margin-top:10px;font-size:13px">Names marked in red go in with price 0. Add them to the <b>Products</b> or <b>Labour</b> tab with your price, or change the name in <b>Trade Recipes</b>.</div>' : '') + '</div>';
+}
+function putRecipe() {
+  var e = ST.est, r = ST.rcLast || rcpCalc(e.recipe.areas);
+  if (!r.lines.length) { toast('Type the sizes of at least one area first', true); return; }
+  var names = rcpNames(), old = {};
+  e.materials.concat(e.labour).forEach(function (x) { if (!x.heading && n(x.rate)) old[x.desc] = x.rate; });
+  var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
+  var labs = {}; ST.labour.forEach(function (l) { labs[l.desc] = l; });
+  e.materials = e.materials.filter(function (m) { return m.heading || names.indexOf(m.desc) < 0; });
+  e.labour = e.labour.filter(function (m) { return m.heading || names.indexOf(m.desc) < 0; });
+  r.lines.forEach(function (l) {
+    if (l.type === 'Labour') { var lb = labs[l.item] || {}; e.labour.push({ desc: l.item, unit: lb.unit || 'sqm', qty: l.qty, rate: old[l.item] || lb.rate || '' }); }
+    else { var p = prods[l.item] || {}; e.materials.push({ desc: l.item, unit: p.unit || '', qty: l.qty, rate: old[l.item] || p.estRate || 0 }); }
+  });
+  if (!e.title) { var w = rcpWork(e.recipe.areas[0].work); e.title = w ? w.work : ''; }
+  closePage(); renderEstForm(); saveDraft();
+  toast(r.lines.length + ' lines put into the estimate');
+}
+function rcAct(a, d, el) {
+  switch (a) {
+    case 'rc-open': openRecipe(); return true;
+    case 'rc-add': var L = ST.est.recipe.areas, last = L[L.length - 1]; L.push({ name: 'Area ' + (L.length + 1), work: last ? last.work : rcpWorks()[0].key, L: '', W: '', pick: last ? JSON.parse(JSON.stringify(last.pick || {})) : {} }); renderRcAreas(); renderRcResult(); return true;
+    case 'rc-del': ST.est.recipe.areas.splice(+d.i, 1); renderRcAreas(); renderRcResult(); saveDraft(); return true;
+    case 'rc-pick': var ar = ST.est.recipe.areas[+d.i]; ar.pick = ar.pick || {}; ar.pick[d.g] = d.v; renderRcAreas(); renderRcResult(); saveDraft(); return true;
+    case 'rc-put': putRecipe(); return true;
+  }
+  return false;
 }
 
 /* ============ OTHER INCOME ============ */
@@ -2032,12 +2394,22 @@ function mgLeads() {
     (keys.length ? '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Where jobs come from</h3><div class="tscroll"><table class="rep"><thead><tr><th>Source</th><th>Enquiries</th><th>Won</th><th>Won value</th></tr></thead><tbody>' +
       keys.map(function (k) { var s = src[k]; return '<tr><td>' + esc(k) + '</td><td>' + s.n + '</td><td>' + s.won + '</td><td>' + money(s.value).replace('GH₵ ', '') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
       '<div class="muted" style="padding:6px 14px 0;font-size:13px">Put more money into the adverts that bring <b>won</b> jobs, not only enquiries.</div></div>' : '') +
+    mgReferrers(all) +
     '<div class="chips">' + ['Open', 'Follow up', 'Won', 'Lost', 'All'].map(function (c) { return '<button class="chip' + (c === f ? ' on' : '') + '" data-act="mg-leadf" data-v="' + c + '">' + c + (c === 'Follow up' && due.length ? ' (' + due.length + ')' : '') + '</button>'; }).join('') + '</div>' +
     (list.length ? list.map(function (x) {
       var late = open(x) && x.follow && x.follow <= t0;
       return '<div class="item" data-act="mg-lead" data-no="' + esc(x.no) + '"><div class="mid"><div class="t">' + esc(x.name || x.phone) + '</div><div class="sub">' + esc(x.job || 'Enquiry') + ' · ' + esc(x.source || 'source?') + ' · ' + esc(x.date) + '</div>' +
         (late ? '<div class="sub" style="color:var(--bad);font-weight:700">Follow up ' + (x.follow < t0 ? 'was due ' + esc(x.follow) : 'today') + '</div>' : '') + '</div><div class="end">' + (n(x.value) ? '<div class="money">' + money(x.value) + '</div>' : '') + badge(x.status) + '</div></div>';
     }).join('') : '<div class="empty">' + (all.length ? 'Nothing here.' : 'Record every call or WhatsApp enquiry here, with where they found you. You will see which adverts bring real jobs.') + '</div>');
+}
+function mgReferrers(all) {
+  var r = {}; all.forEach(function (x) { if (!x.ref) return; var o = r[x.ref] || (r[x.ref] = { n: 0, won: 0, value: 0 }); o.n++; if (x.status === 'Won') { o.won++; o.value += n(x.value); } });
+  var k = Object.keys(r).sort(function (a, b) { return r[b].won - r[a].won || r[b].n - r[a].n; }); if (!k.length) return '';
+  var phone = function (nm) { var c = (ST.clients || []).filter(function (c) { return c.name === nm; })[0]; var w = c ? String(c.phone || '').replace(/\D/g, '') : ''; return /^0\d{9}$/.test(w) ? '233' + w.slice(1) : w; };
+  return '<div class="card" style="padding:10px 0"><h3 style="padding:0 14px">Clients who refer us</h3><div class="tscroll"><table class="rep"><thead><tr><th>Client</th><th>Sent</th><th>Won</th><th>Value</th><th></th></tr></thead><tbody>' +
+    k.map(function (nm) { var o = r[nm], msg = 'Hello ' + nm.split(' ')[0] + ', thank you so much for recommending ' + ((ST.s && ST.s.name) || 'us') + '. We really appreciate it!';
+      return '<tr><td>' + esc(nm) + '</td><td>' + o.n + '</td><td>' + o.won + '</td><td>' + money(o.value).replace('GH₵ ', '') + '</td><td><a class="link" target="_blank" rel="noopener" href="https://wa.me/' + esc(phone(nm)) + '?text=' + encodeURIComponent(msg) + '">Thank</a></td></tr>'; }).join('') +
+    '</tbody></table></div></div>';
 }
 function mgLeadSheet(no) {
   var d = ST.mg, x = d.leads.filter(function (y) { return y.no === no; })[0] || { no: '', date: today(), name: '', phone: '', location: '', job: '', source: '', status: 'New', est: '', value: '', follow: '', note: '' };
@@ -2049,6 +2421,8 @@ function mgLeadSheet(no) {
     '<div class="row2">' + fld('Location', '<input class="in" id="mgl-loc" value="' + esc(x.location) + '">') + fld('Date', '<input class="in" type="date" id="mgl-date" value="' + esc(x.date) + '">') + '</div>' +
     fld('What job do they want?', '<input class="in" id="mgl-job" value="' + esc(x.job) + '" placeholder="e.g. Plasterboard ceiling, 3 bedrooms">') +
     fld('Where did they find us?', '<select class="in" id="mgl-src"><option value="">Choose…</option>' + opts(d.sources, x.source) + '</select>') +
+    fld('Referred by (which client sent them?)', '<input class="in" id="mgl-ref" list="mgl-refs" value="' + esc(x.ref || '') + '" placeholder="e.g. Mrs Owusu"><datalist id="mgl-refs">' +
+      uniq(((ST.clients || []).map(function (c) { return c.name; })).concat(d.leads.map(function (l) { return l.ref; })).filter(String)).map(function (nm) { return '<option value="' + esc(nm) + '">'; }).join('') + '</datalist>') +
     '<label class="f"><span>Status</span><div class="chips" id="mgl-status" style="margin:0">' + d.leadStatuses.map(function (s) { return '<button class="chip' + (s === x.status ? ' on' : '') + '" data-act="mg-lst" data-v="' + s + '">' + s + '</button>'; }).join('') + '</div></label>' +
     '<div class="row2">' + fld('Value (GH₵)', '<input class="in" inputmode="decimal" id="mgl-val" value="' + esc(x.value || '') + '">') + fld('Estimate No', '<input class="in" id="mgl-est" value="' + esc(x.est) + '">') + '</div>' +
     fld('Follow up on', '<input class="in" type="date" id="mgl-follow" value="' + esc(x.follow) + '">') +
@@ -2060,7 +2434,7 @@ function mgLeadSheet(no) {
 function mgLeadSave(toEst) {
   var x = ST.mgEditLead, st = $('#mgl-status .chip.on');
   var y = { no: x.no, date: mgVal('mgl-date') || today(), name: mgVal('mgl-name'), phone: mgVal('mgl-phone'), location: mgVal('mgl-loc'), job: mgVal('mgl-job'), source: mgVal('mgl-src'),
-    status: st ? st.dataset.v : x.status, value: mgVal('mgl-val'), est: mgVal('mgl-est'), follow: mgVal('mgl-follow'), note: mgVal('mgl-note') };
+    status: st ? st.dataset.v : x.status, ref: mgVal('mgl-ref'), value: mgVal('mgl-val'), est: mgVal('mgl-est'), follow: mgVal('mgl-follow'), note: mgVal('mgl-note') };
   if (!y.name && !y.phone) { toast('Type a name or phone number', true); return; }
   if (toEst && y.status === 'New' || toEst && y.status === 'Site visit') y.status = 'Estimate sent';
   mgSaved('apiSaveLead', y, 'Enquiry: ' + (y.name || y.phone), function () {
@@ -2112,7 +2486,8 @@ function renderClients() {
   var all = ST.clients || [], f = ST.cliFilter, q = ($('#cli-q').value || '').toLowerCase();
   var g = { All: all, Owing: all.filter(function (c) { return c.owes > 0; }), Overdue: all.filter(function (c) { return c.overdue > 0; }) };
   var owes = g.Owing.reduce(function (a, c) { return a + c.owes; }, 0), od = g.Overdue.reduce(function (a, c) { return a + c.overdue; }, 0);
-  $('#cli-sum').innerHTML = '<div class="stats" style="margin-bottom:10px">' + stat('Clients owe you', money(owes), g.Owing.length + ' client' + (g.Owing.length === 1 ? '' : 's'), true) + stat('Overdue', money(od), g.Overdue.length + ' to remind') + '</div>';
+  $('#cli-sum').innerHTML = '<div class="stats" style="margin-bottom:10px">' + stat('Clients owe you', money(owes), g.Owing.length + ' client' + (g.Owing.length === 1 ? '' : 's'), true) + stat('Overdue', money(od), g.Overdue.length + ' to remind') + '</div>' +
+    '<button class="btn s w" style="margin-bottom:10px" data-act="bc-start">' + ICON.wa + 'Message many clients</button>';
   $('#cli-filter').innerHTML = ['All', 'Owing', 'Overdue'].map(function (k) { return '<button class="chip' + (k === f ? ' on' : '') + '" data-act="cli-f" data-f="' + k + '">' + k + ' (' + g[k].length + ')</button>'; }).join('');
   var l = g[f].filter(function (c) { return (c.name + ' ' + c.phone + ' ' + c.location).toLowerCase().indexOf(q) >= 0; });
   $('#cli-items').innerHTML = l.length ? l.map(function (c) {
@@ -2384,16 +2759,26 @@ function saveWorker(old) {
 /* ============ overlays ============ */
 function openPage(t, html) { $('#page-t').textContent = t; $('#page-b').innerHTML = html; $('#page').classList.add('on'); $('#page').scrollTop = 0; }
 function closePage() { $('#page').classList.remove('on'); ST.page = null; }
-function openSheet(html) { $('#sheet-b').innerHTML = html; $('#shade').classList.add('on'); $('#sheet').classList.add('on'); }
-function closeSheet() { $('#shade').classList.remove('on'); $('#sheet').classList.remove('on'); }
+function openSheet(html) { if (SCAN && html.indexOf('scan-v') < 0) stopScan(); $('#sheet-b').innerHTML = html; $('#shade').classList.add('on'); $('#sheet').classList.add('on'); }
+function closeSheet() { if (typeof SCAN !== 'undefined' && SCAN) stopScan(); $('#shade').classList.remove('on'); $('#sheet').classList.remove('on'); }
 
 /* ============ events ============ */
 document.addEventListener('click', function (ev) {
   var el = ev.target.closest('[data-act]'); if (!el) return;
   var a = el.dataset.act, d = el.dataset;
-  if (el.tagName === 'A') return;
+  if (el.tagName === 'A') { if (a === 'bc-sent') setTimeout(function () { bcastStep(+d.i + 1); }, 600); return; }
   if (a.indexOf('mg-') === 0 && mgAct(a, d, el)) return;
   if ((a.indexOf('h-') === 0 || a.indexOf('inc-') === 0) && hAct(a, d, el)) return;
+  if (a.indexOf('rc-') === 0 && rcAct(a, d, el)) return;
+  if ((/^(scan|bc-|backup-|pl-|ol-)/.test(a)) && xAct(a, d, el)) return;
+  if (a === 'share-file') {
+    if (!ST.pdfFile) return;
+    navigator.share({ files: [ST.pdfFile] }).catch(function (e) { if (e && e.name !== 'AbortError') toast('Could not share: ' + e.message, true); });
+    return;
+  }
+  if (a === 'pr-open') { printSheet(ST.page.data); return; }
+  if (a === 'pr-go') { printHtml(receiptHtml(ST.printSale)); return; }
+  if (a === 'pr-rawbt') { rawbtPrint(receiptText(ST.printSale)); return; }
   switch (a) {
     case 'nav': go(d.v); if (d.t) showSaleTab(d.t); break;
     case 'go-jobs': go('jobs'); break;
@@ -2530,7 +2915,7 @@ document.addEventListener('click', function (ev) {
     case 'share': shareSheet(d.kind, d.no, d.kind === 'payment' ? 'Payment receipt ' + d.no : d.kind === 'estimate' ? 'Estimate ' + d.no : 'Receipt ' + d.no); break;
     case 'mkpdf': makePdf(d.kind, d.no); break;
     case 'copy': try { navigator.clipboard.writeText(d.t).then(function () { toast('Link copied'); }); } catch (e) { toast('Could not copy', true); } break;
-    case 'page-close': var wasEz = ST.page && ST.page.kind === 'estimator'; closePage(); if (wasEz) renderEstForm(); if (ST.view === 'est' && ST.estTab === 'list') loadEstList(); if (ST.view === 'home') go('home'); if (ST.view === 'jobs') renderJobs(); break;
+    case 'page-close': var wasEz = ST.page && (ST.page.kind === 'estimator' || ST.page.kind === 'recipe'); closePage(); if (wasEz) renderEstForm(); if (ST.view === 'est' && ST.estTab === 'list') loadEstList(); if (ST.view === 'home') go('home'); if (ST.view === 'jobs') renderJobs(); break;
     case 'sheet-close': closeSheet(); break;
   }
 });
@@ -2540,6 +2925,8 @@ document.addEventListener('input', function (ev) {
   if (d.ef) { ST.est[d.ef] = t.value; if (['transport', 'discount', 'taxRate'].indexOf(d.ef) >= 0) estTotals(); else saveDraft(); return; }
   if (d.lf) { (d.lf === 'mat' ? ST.est.materials : ST.est.labour)[+d.i][d.p] = t.value; if (d.p === 'desc') saveDraft(); else estTotals(); return; }
   if (['pf-amt', 'pf-cash', 'pf-momo', 'pf-bank'].indexOf(t.id) >= 0) { pfLeft(); return; }
+  if (d.ra !== undefined) { ST.est.recipe.areas[+d.ra][d.f] = t.value; if (d.f !== 'name') renderRcResult(); saveDraft(); return; }
+  if (d.rp !== undefined) { var ap = ST.est.recipe.areas[+d.rp]; ap.pcs = ap.pcs || {}; ap.pcs[d.v] = t.value; renderRcResult(); saveDraft(); return; }
   if (d.rm !== undefined) { ST.est.rooms.list[+d.rm][d.f] = t.value; if (d.f !== 'name') renderEzResult(); saveDraft(); return; }
   if (t.id === 'ez-wpb' || t.id === 'ez-wac') { ST.est.rooms.waste[t.id === 'ez-wpb' ? 'pb' : 'ac'] = t.value; renderEzResult(); saveDraft(); return; }
   if (d.pl) {
@@ -2560,13 +2947,20 @@ document.addEventListener('input', function (ev) {
 document.addEventListener('change', function (ev) {
   var t = ev.target;
   if (t.id === 'ez-print') { ST.est.rooms.print = t.checked; saveDraft(); }
+  if (t.dataset && t.dataset.rw !== undefined) { var aw = ST.est.recipe.areas[+t.dataset.rw]; aw.work = t.value; aw.pick = {}; aw.opt = {}; aw.pcs = {}; renderRcAreas(); renderRcResult(); saveDraft(); }
+  if (t.dataset && t.dataset.ro !== undefined) { var ao = ST.est.recipe.areas[+t.dataset.ro]; ao.opt = ao.opt || {}; ao.opt[t.dataset.v] = t.checked; renderRcAreas(); renderRcResult(); saveDraft(); }
   if (t.id === 'mg-ym' && t.value) { ST.mgYm = t.value; loadMgmt(); }
   if (t.id === 'inc-ym' && t.value) { ST.incYm = t.value; loadIncome(); }
   if (t.id === 'h-date' && t.value) { ST.hDate = t.value; loadHistory(); }
-  if (t.dataset && t.dataset.rmc !== undefined) { ST.est.rooms.list[+t.dataset.rmc].cornice = t.checked; renderEzResult(); saveDraft(); }
+  if (t.dataset && t.dataset.rmc !== undefined) { ST.est.rooms.list[+t.dataset.rmc].cornice = t.checked; renderEzRooms(); renderEzResult(); saveDraft(); }
   if (t.dataset && t.dataset.rmi !== undefined) { ST.est.rooms.list[+t.dataset.rmi].ins = t.checked; renderEzResult(); saveDraft(); }
   if (t.dataset.ef) { ST.est[t.dataset.ef] = t.value; saveDraft(); }
   if (t.id === 'pf-stage') { ['cash', 'momo', 'bank'].forEach(function (k) { var i = $('#pf-' + k); if (i && n(i.value)) i.value = t.value; }); }
+});
+$('#pos-q').addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter') return; var v = this.value.trim(); if (!v) return;
+  if (findCode(v)) { scanAdd(v); this.value = ''; renderPos(); e.preventDefault(); }
+  else if (/^\d{6,}$/.test(v)) { scanAdd(v); this.value = ''; renderPos(); e.preventDefault(); }
 });
 $('#pin-in').addEventListener('keydown', function (e) { if (e.key === 'Enter') { ST.pin = this.value.trim(); boot(); } });
 
