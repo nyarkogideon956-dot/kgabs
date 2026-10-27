@@ -1234,7 +1234,8 @@ function makePdf(kind, no) {
     if (ST.pdfUrl) try { URL.revokeObjectURL(ST.pdfUrl); } catch (e) { }
     ST.pdfUrl = ST.pdfFile ? URL.createObjectURL(ST.pdfFile) : '';
     var html = (canShare ? '<button class="btn g w" data-act="share-file">' + ICON.pdf + 'Send PDF file (WhatsApp, email…)</button>' +
-        '<div class="muted" style="font-size:12.5px;margin:6px 0 10px">Sends only the PDF, nothing else. Pick WhatsApp, then the person.</div>' :
+        '<div class="muted" id="pdf-hint" style="font-size:12.5px;margin:6px 0 6px">Sends only the PDF, nothing else. Pick WhatsApp, then the person.</div>' +
+        '<button class="btn s w" style="margin-bottom:10px" data-act="save-pdf">' + ICON.pdf + 'Save PDF to phone</button>' :
         (ST.pdfFile ? '<a class="btn g w" download="' + esc(ST.pdfFile.name) + '" href="' + esc(ST.pdfUrl) + '">' + ICON.pdf + 'Download PDF file</a><div class="muted" style="font-size:12.5px;margin:6px 0 10px">Then attach it in WhatsApp or email.</div>' : '')) +
       '<a class="btn ' + (canShare || ST.pdfFile ? 's' : 'g') + ' w" target="_blank" rel="noopener" href="' + esc(wa) + '">' + ICON.wa + 'Send as a link on WhatsApp' + (r.wa ? '' : ' (pick contact)') + '</a>' +
       '<div class="acts"><a class="btn s" href="' + esc(sms) + '">Send by SMS</a><a class="btn s" target="_blank" rel="noopener" href="' + esc(r.url) + '">' + ICON.pdf + 'Open PDF</a></div>' +
@@ -2773,7 +2774,24 @@ document.addEventListener('click', function (ev) {
   if ((/^(scan|bc-|backup-|pl-|ol-)/.test(a)) && xAct(a, d, el)) return;
   if (a === 'share-file') {
     if (!ST.pdfFile) return;
-    navigator.share({ files: [ST.pdfFile] }).catch(function (e) { if (e && e.name !== 'AbortError') toast('Could not share: ' + e.message, true); });
+    var fallback = function () {
+      var a2 = document.createElement('a'); a2.href = ST.pdfUrl; a2.download = ST.pdfFile.name; document.body.appendChild(a2); a2.click(); a2.remove();
+      var hint = $('#pdf-hint'); if (hint) hint.innerHTML = '<b>The PDF was saved to your phone (Downloads).</b> In WhatsApp open the chat → 📎 → <b>Document</b> → pick <b>' + esc(ST.pdfFile.name) + '</b>.';
+      toast('PDF saved to Downloads: attach it in WhatsApp');
+    };
+    try {
+      navigator.share({ files: [ST.pdfFile], title: ST.pdfFile.name }).catch(function (e) {
+        if (e && e.name === 'AbortError') return;
+        // some phones refuse file sharing from the browser: try once without a title, then save the file instead
+        navigator.share({ files: [ST.pdfFile] }).catch(function (e2) { if (!e2 || e2.name !== 'AbortError') fallback(); });
+      });
+    } catch (e) { fallback(); }
+    return;
+  }
+  if (a === 'save-pdf') {
+    if (!ST.pdfFile) return;
+    var a3 = document.createElement('a'); a3.href = ST.pdfUrl; a3.download = ST.pdfFile.name; document.body.appendChild(a3); a3.click(); a3.remove();
+    toast('PDF saved to Downloads');
     return;
   }
   if (a === 'pr-open') { printSheet(ST.page.data); return; }
