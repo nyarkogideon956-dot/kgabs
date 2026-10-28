@@ -297,6 +297,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
       <button data-act="go-owing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Owing</button>
       <button data-act="nav" data-v="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Reports</button>
     </div>
+    <div id="home-follow" data-mod="est"></div>
     <div id="home-low"></div>
     <div class="card" id="home-pick" style="margin-top:12px"></div>
     <div class="stats" id="home-period"></div>
@@ -454,7 +455,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
 window.KG_PWA = true;
 function KG_SERVER() { try { return localStorage.getItem('kg_server') || ''; } catch (e) { return ''; } }
 function KG_SET_SERVER(u) { try { if (u) localStorage.setItem('kg_server', u); else localStorage.removeItem('kg_server'); } catch (e) { } }
-var KG_READS = { apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1, apiPeriod: 1, apiClients: 1, apiClient: 1, apiMgmt: 1, apiHistory: 1, apiIncome: 1 };
+var KG_READS = { apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1, apiPeriod: 1, apiClients: 1, apiClient: 1, apiMgmt: 1, apiHistory: 1, apiIncome: 1, apiFollowUps: 1 };
 function kgCached(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
 function kgKeep(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { } }
 function kgCall(fn, args) {
@@ -750,7 +751,7 @@ function renderHome() {
   $('#h-date').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   var s = ST.stats; if (!s) return;
   if (!$('#home-pick').innerHTML) renderHomePick();
-  renderLowCard();
+  renderLowCard(); loadFollow();
   renderHomePeriod();
   $('#home-stats').innerHTML = s.owner ?
     stat('Customers owing', money(s.owingSales), s.owingCount + ' receipt' + (s.owingCount === 1 ? '' : 's')) +
@@ -1404,7 +1405,7 @@ window.addEventListener('offline', function () { toast('You are offline. New sal
 var EST_RULES_DEFAULT = {
   pb_sheet_item: 'Plasterboard 9mm sheet', pt_sheet_item: 'Plasterboard 12.5mm sheet', pb_sheet_len: 2.4, pb_sheet_wid: 1.2, pb_waste: 5,
   pb_main_item: 'Main channel 3m', pb_main_len: 3, pb_main_space: 1.2,
-  pb_omega_item: 'Omega', pb_omega_len: 3, pb_omega_space: 0.6,
+  pb_omega_item: 'Omega', pb_omega_len: 3, pb_omega_space: 0.6, pb_omega_walls: 'No',
   pb_angle_item: 'Wall angle / U-track 3m', pb_angle_len: 3,
   pb_hanger_item: 'Hanger clip / connector', pb_hanger_space: 1.2,
   wire_item: 'Hanger wire', wire_per_hanger: 0.5,
@@ -1486,8 +1487,9 @@ function estimateCeilings(rooms, waste, R, frame) {
     } else if (b.type === 'PB') {
       b.frame = 'metal';
       var mainLines = Math.max(1, ceil(g.W / R.pb_main_space));
-      var omegaLines = ceil(g.L / R.pb_omega_space) + 1;
-      b.main = mainLines * g.L * g.fill; b.omega = omegaLines * g.W * g.fill;
+      // Omega metres = ceiling area ÷ spacing (6 x 5 = 30 m² ÷ 0.6 = 50 m ÷ 3 = 16.7 → 17). "Yes" at the walls adds a run on each end wall.
+      var omegaWalls = String(R.pb_omega_walls).toLowerCase() === 'yes';
+      b.main = mainLines * g.L * g.fill; b.omega = g.area / R.pb_omega_space + (omegaWalls ? 2 * g.W * g.fill : 0);
       b.angle = ceil(g.walls / R.pb_angle_len);
       b.hangers = ceil(mainLines * (ceil(g.L / R.pb_hanger_space) + 1) * g.fill);
       b.sheets = ceil(g.area / (R.pb_sheet_len * R.pb_sheet_wid) * (1 + wPB));
@@ -1772,6 +1774,55 @@ function addPastedRooms(mode) {
   r.rooms.forEach(function (x) { list.push(x.type === 'PT' ? { name: x.name, type: 'PT', L: x.L, H: x.H, doors: x.doors || '', ins: !!x.ins } : { name: x.name, type: x.type, shape: 'rect', L: x.L, W: x.W, cornice: !!x.cornice, frame: x.type === 'PB' && x.frame && x.frame !== (ST.est.rooms.frame || 'metal') ? x.frame : undefined }); });
   ST.paste.text = ''; closeSheet(); renderEzRooms(); renderEzResult(); saveDraft();
   toast(r.rooms.length + ' room' + (r.rooms.length === 1 ? '' : 's') + ' added');
+}
+
+/* ============ ESTIMATE FOLLOW-UP ============ */
+var FOLLOW_AT = 0;
+function loadFollow() {
+  if (ST.mods && ST.mods.est === false) return;
+  if (ST.follow && Date.now() - FOLLOW_AT < 60000) { renderFollow(); return; }
+  FOLLOW_AT = Date.now();
+  try { var p = fast('apiFollowUps', [], function (d) { ST.follow = d; renderFollow(); }, null, function () { }); if (p && p.catch) p.catch(function () { }); } catch (e) { }
+}
+function renderFollow() {
+  var el = $('#home-follow'), d = ST.follow; if (!el) return;
+  if (!d || !d.list || !d.list.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="card" style="background:var(--warnbg)"><h3 style="color:var(--warn)">Follow up estimates (' + d.list.length + ')</h3>' +
+    '<div class="muted" style="margin:-4px 0 8px;font-size:13px">Sent ' + d.days + '+ days ago and no answer yet. A quick message wins jobs.</div>' +
+    d.list.slice(0, 5).map(function (x) {
+      return '<div class="item" data-act="fu-open" data-no="' + esc(x.no) + '"><div class="mid"><div class="t">' + esc(x.client || 'No name') + '</div><div class="sub">' + esc(x.no) + (x.title ? ' · ' + esc(x.title) : '') + ' · ' + x.days + ' days' + (x.times ? ' · followed up ' + x.times + '×' : '') + '</div></div><div class="end"><div class="money">' + money(x.grand) + '</div></div></div>';
+    }).join('') + (d.list.length > 5 ? '<div class="muted" style="margin-top:6px">+ ' + (d.list.length - 5) + ' more</div>' : '') + '</div>';
+}
+function followSheet(no) {
+  var x = ((ST.follow && ST.follow.list) || []).filter(function (y) { return y.no === no; })[0]; if (!x) return;
+  var s = ST.s || {};
+  var txt = fillMsg(ST.follow.msg, { client: x.client || 'Sir/Madam', 'for': x.no + (x.title ? ' (' + x.title + ')' : ''), date: x.dateNice, amount: money(x.grand), business: s.name || '', phone: s.phone || '' });
+  var wa = String(x.phone || '').replace(/\D/g, ''); if (/^0\d{9}$/.test(wa)) wa = '233' + wa.slice(1);
+  ST.fuNo = no;
+  openSheet('<h2>Follow up ' + esc(x.no) + '</h2><div class="muted" style="margin-bottom:8px">' + esc(x.client) + (x.phone ? ' · ' + esc(x.phone) : ' · no phone saved') + ' · sent ' + esc(x.dateNice) + (x.lastNice ? ' · last follow-up ' + esc(x.lastNice) : '') + '</div>' +
+    '<textarea class="in" id="fu-t" style="min-height:140px">' + esc(txt) + '</textarea>' +
+    '<button class="btn g w" style="margin-top:10px" data-act="fu-wa" data-wa="' + esc(wa) + '">' + ICON.wa + 'Send on WhatsApp</button>' +
+    '<div class="acts">' + (x.phone ? '<a class="btn s" href="tel:' + esc(x.phone) + '">Call</a>' : '') + '<button class="btn s" data-act="open-est" data-no="' + esc(x.no) + '">Open estimate</button></div>' +
+    '<div class="sec" style="margin-top:12px">What did they say?</div>' +
+    '<div class="acts"><button class="btn p" data-act="fu-res" data-r="Won">Accepted</button><button class="btn s" data-act="fu-res" data-r="Followed up">Still thinking</button><button class="btn s" style="color:var(--bad)" data-act="fu-res" data-r="Lost">Lost</button></div>');
+}
+function fuDone(r, note) {
+  var no = ST.fuNo;
+  saveOrQueue('apiFollowUp', { no: no, result: r, note: note || '' }, 'Follow-up ' + no + (r !== 'Followed up' ? ' ' + r : ''), 'Saving…', function () {
+    toast(r === 'Won' ? 'Marked as accepted. Well done!' : r === 'Lost' ? 'Marked as lost' : 'Noted. It will come back if they still don\'t answer.');
+  }, function () { });
+  if (ST.follow) ST.follow.list = ST.follow.list.filter(function (x) { return x.no !== no; });
+  renderFollow(); closeSheet();
+}
+function fuAct(a, d) {
+  switch (a) {
+    case 'fu-open': followSheet(d.no); return true;
+    case 'fu-wa':
+      window.open('https://wa.me/' + (d.wa || '') + '?text=' + encodeURIComponent($('#fu-t').value), '_blank');
+      fuDone('Followed up', 'WhatsApp'); return true;
+    case 'fu-res': fuDone(d.r); return true;
+  }
+  return false;
 }
 
 /* ============ LOW STOCK ============ */
@@ -2772,6 +2823,7 @@ document.addEventListener('click', function (ev) {
   if ((a.indexOf('h-') === 0 || a.indexOf('inc-') === 0) && hAct(a, d, el)) return;
   if (a.indexOf('rc-') === 0 && rcAct(a, d, el)) return;
   if ((/^(scan|bc-|backup-|pl-|ol-)/.test(a)) && xAct(a, d, el)) return;
+  if (a.indexOf('fu-') === 0 && fuAct(a, d)) return;
   if (a === 'share-file') {
     if (!ST.pdfFile) return;
     var fallback = function () {
