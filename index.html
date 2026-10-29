@@ -982,6 +982,7 @@ function openEst(est) {
     '<div class="muted" style="margin-top:6px">' + esc(c.dateNice) + ' · valid until ' + esc(c.validUntil) + ' · ' + (c.matBy === 'Client' ? 'client buys materials' : 'we buy materials') + '</div>' +
     '<label class="f" style="margin:12px 0 0"><span>Change status</span><select class="in" id="est-status">' + opts(ST.statuses, c.status) + '</select></label></div>' +
     '<div class="acts" style="margin:0 0 12px"><button class="btn g" data-act="share" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.wa + 'Send on WhatsApp</button><button class="btn s" data-act="share" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Make PDF</button>' +
+    '<button class="btn s" data-act="share" data-kind="invoice" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Invoice</button><button class="btn s" data-act="share" data-kind="proforma" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Proforma invoice</button>' +
     '<button class="btn p" data-act="est-pay"' + (c.balance > 0 ? '' : ' disabled') + '>Record payment</button>' + (ST.s.online && c.balance > 0 ? '<button class="btn g" data-act="pl-open" data-k="estimate" data-no="' + esc(c.no) + '">' + ICON.wa + 'Send MoMo pay link</button>' : '') + '<button class="btn s" data-act="est-edit">Edit</button></div>' +
     '<div class="card"><h3>Money</h3>' + taxKv(c.tax, n(c.taxRate)) + kv('Grand total', money(c.grand), 'b') + (c.matBy === 'Client' ? kv('Workmanship payable to us', money(c.payable), 'b') : '') + kv('Paid', money(c.paid)) +
     '<div class="kv big"><span>Balance</span><span class="money">' + money(c.balance) + '</span></div>' +
@@ -1221,7 +1222,7 @@ function stockForm(item) {
 /* ============ share / pdf ============ */
 function shareSheet(kind, no, head) {
   openSheet('<h2>' + esc(head || 'Share') + '</h2><div class="muted" style="margin-bottom:12px">' +
-    (kind === 'payment' ? 'Send the client a receipt for this payment.' : kind === 'sale' ? 'Send the customer their receipt.' : kind === 'period' ? 'All the tables for this period in one PDF. Open it to print or save. A copy is kept in Google Drive, in the Monthly reports folder.' : kind === 'statement' ? 'Send the client their statement.' : 'Send the estimate to the client.') + '</div><div id="sh-b"></div>');
+    (kind === 'payment' ? 'Send the client a receipt for this payment.' : kind === 'sale' ? 'Send the customer their receipt.' : kind === 'period' ? 'All the tables for this period in one PDF. Open it to print or save. A copy is kept in Google Drive, in the Monthly reports folder.' : kind === 'statement' ? 'Send the client their statement.' : kind === 'invoice' ? 'An invoice asks the client to pay: it shows what is paid so far and the balance due, with a due date. Payments you record update it.' : kind === 'proforma' ? 'Same items and prices as the estimate, titled PROFORMA INVOICE, for clients whose office needs an invoice before paying.' : 'Send the estimate to the client.') + '</div><div id="sh-b"></div>');
   makePdf(kind, no);
 }
 function makePdf(kind, no) {
@@ -1405,7 +1406,7 @@ window.addEventListener('offline', function () { toast('You are offline. New sal
 var EST_RULES_DEFAULT = {
   pb_sheet_item: 'Plasterboard 9mm sheet', pt_sheet_item: 'Plasterboard 12.5mm sheet', pb_sheet_len: 2.4, pb_sheet_wid: 1.2, pb_waste: 5,
   pb_main_item: 'Main channel 3m', pb_main_len: 3, pb_main_space: 1.2,
-  pb_omega_item: 'Omega', pb_omega_len: 3, pb_omega_space: 0.6, pb_omega_walls: 'No',
+  pb_omega_item: 'Omega', pb_omega_len: 3, pb_omega_space: 0.6, pb_omega_walls: 'No', quick_room_m2: 16,
   pb_angle_item: 'Wall angle / U-track 3m', pb_angle_len: 3,
   pb_hanger_item: 'Hanger clip / connector', pb_hanger_space: 1.2,
   wire_item: 'Hanger wire', wire_per_hanger: 0.5,
@@ -1710,6 +1711,15 @@ function parseRoomLines(text, unit, defType) {
     if (/\b(partitions?|drywall|dry\s*wall|stud\s*wall)\b/i.test(line)) type = 'PT';
     else if (/\b(acoustic|acc|ac|t-?grid|tiles?)\b/i.test(line)) type = 'AC';
     else if (/\b(plasterboard|plaster\s*board|gypsum|pb|pop)\b/i.test(line)) type = 'PB';
+    // only the area is known (like a supplier quote): "Whole house 120 m2 5 rooms" makes 5 square rooms of 24 m² each
+    var am = line.match(/(\d+(?:\.\d+)?)\s*(m2|m²|sqm|sq\.?\s*m(?:etres?|eters?)?\b|square\s*met(?:er|re)s?|sq\.?\s*ft|sqft|square\s*f(?:ee|oo)t)/i);
+    if (am && type !== 'PT') {
+      var area = parseFloat(am[1]) * (/f/i.test(am[2]) ? 0.092903 : 1), rm = line.match(/(\d+)\s*rooms?\b/i), qr = 16; try { qr = n(estRules().quick_room_m2) || 16; } catch (e) { }
+      var nR = Math.max(1, rm ? +rm[1] : Math.floor(area / qr)), side = Math.round(Math.sqrt(area / nR) * 100) / 100;
+      var nm = line.replace(am[0], ' ').replace(rm ? rm[0] : '', ' ').replace(/\b(acoustic|acc|ac|t-?grid|tiles?|plasterboard|plaster\s*board|gypsum|pb|pop|total|area|only)\b/gi, ' ').replace(/[,;:=*()\-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Area';
+      for (var q = 1; q <= nR; q++) { k++; var o = { name: nR > 1 ? nm + ' ' + q : nm, type: type, L: side, W: side, shape: 'rect', cornice: cornice, quick: true }; if (frm) o.frame = frm; rooms.push(o); }
+      return;
+    }
     var nums = [], feet = unit === 'ft', work = line;
     // one pass: a number, maybe with feet (and inches) or metres after it
     var re = /(\d+(?:\.\d+)?)\s*(?:('|\u2019|ft\b|feet\b)\s*(?:(\d+(?:\.\d+)?)\s*(?:"|\u201d|''|in\b|inch(?:es)?\b)?(?=\s*(?:$|x\b|X\b|by\b|[*,;\u00d7]|\s[A-Za-z])))?|(m\b|metres?\b|meters?\b))?/gi;
@@ -1746,7 +1756,7 @@ function parseRoomLines(text, unit, defType) {
 function openPasteRooms() {
   ST.paste = ST.paste || { unit: 'm', type: 'PB' };
   openSheet('<h2>Paste many rooms</h2>' +
-    '<div class="muted" style="margin-bottom:8px">One room per line: <b>name, length, width</b>. You can paste from WhatsApp, notes or Excel. Write <b>acoustic</b> on a line for an acoustic room, and <b>cornice</b> for a room that gets cornice. Write <b>wood</b> for a room on wood noggings. For a partition write <b>partition, length, height</b>, and add <b>door</b> / <b>2 doors</b> or <b>insulation</b> if needed.</div>' +
+    '<div class="muted" style="margin-bottom:8px">One room per line: <b>name, length, width</b>. You can paste from WhatsApp, notes or Excel. Write <b>acoustic</b> on a line for an acoustic room, and <b>cornice</b> for a room that gets cornice. Write <b>wood</b> for a room on wood noggings. For a partition write <b>partition, length, height</b>, and add <b>door</b> / <b>2 doors</b> or <b>insulation</b> if needed. <b>Only have the m²?</b> Write it like a supplier: <b>Whole house 120 m2</b> (the app guesses the rooms for the wall angle), or <b>120 m2 5 rooms</b> if you know them, <b>hall 100 m2 1 room</b> for one big space.</div>' +
     '<label class="f"><span>Sizes are in</span><div class="tog" id="pz-unit">' + [['m', 'Metres'], ['ft', 'Feet']].map(function (u) { return '<button data-act="pz-unit" data-v="' + u[0] + '" class="' + (ST.paste.unit === u[0] ? 'on' : '') + '">' + u[1] + '</button>'; }).join('') + '</div></label>' +
     '<label class="f"><span>Type for lines that don\'t say</span><div class="tog" id="pz-type">' + [['PB', 'Plasterboard'], ['AC', 'Acoustic'], ['PT', 'Partition']].map(function (u) { return '<button data-act="pz-type" data-v="' + u[0] + '" class="' + (ST.paste.type === u[0] ? 'on' : '') + '">' + u[1] + '</button>'; }).join('') + '</div></label>' +
     '<textarea class="in" id="pz-text" style="min-height:170px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px" placeholder="Hall 6 x 4\nRoom 1 3.5 x 3\nRoom 2 3.5 x 3\nPorch, 2.4, 1.8\nKitchen 3 x 2.5\nWashroom 2 x 1.5\nMaster bedroom 4.2 x 3.6\nHall 6 x 4 cornice\nShop 5 x 4 acoustic\nPartition office 4.5 x 3 door insulation">' + esc(ST.paste.text || '') + '</textarea>' +
@@ -2016,13 +2026,13 @@ function rcpCalc(areas) {
   var tot = {}, order = [], per = [];
   (areas || []).forEach(function (a) {
     var w = rcpWork(a.work); if (!w) { per.push(null); return; }
-    var L = n(a.L), W = n(a.W), A = L * W, len = w.from === 'wall' ? L : 2 * (L + W), info = { area: A, len: len, lines: [] };
-    if (!A) { per.push(info); return; }
+    var g = rcpGeom(w.from, a), A = g.A, len = g.len, cnt = g.cnt, info = { area: A, len: len, cnt: cnt, from: w.from, lines: [] };
+    if (!A && !cnt) { per.push(info); return; }
     var picks = a.pick || {}, opts = a.opt || {}, pcs = a.pcs || {};
     w.rows.forEach(function (r) {
       if (r.group) { var first = w.rows.filter(function (x) { return x.group === r.group; })[0].item; if ((picks[r.group] || first) !== r.item) return; }
       if (r.optional && !opts[r.item]) return;
-      var units = r.by === 'm' ? len : r.by === 'piece' ? n(pcs[r.item]) : A;
+      var units = r.by === 'm' ? len : r.by === 'piece' ? n(pcs[r.item]) : r.by === 'each' ? cnt : r.by === 'sqft' ? A * 10.7639 : r.by === 'ft' ? len * 3.28084 : A;
       if (!units) return;
       var need = units * r.qty * (1 + n(r.waste) / 100);
       var k = r.type + '|' + r.item;
@@ -2033,13 +2043,23 @@ function rcpCalc(areas) {
     });
     per.push(info);
   });
-  var unitTxt = { m2: 'm²', m: 'm', piece: 'pcs' };
+  var unitTxt = { m2: 'm²', m: 'm', piece: 'pcs', each: 'pcs', sqft: 'sq ft', ft: 'ft' };
   var lines = order.map(function (k) {
     var t = tot[k], q = t.type === 'Labour' ? r1(t.need) : Math.ceil(t.need / (t.pack || 1) - 1e-9);
     var why = r1(t.units) + ' ' + unitTxt[t.by] + (t.qty !== 1 && t.qty !== null ? ' × ' + t.qty : '') + (t.type === 'Labour' ? '' : (t.pack !== 1 ? ' ÷ ' + t.pack + ' ' + (t.packUnit || '') : '') + ' (incl. waste)');
     return { item: t.item, type: t.type, qty: q, why: why };
   }).filter(function (l) { return l.qty > 0; });
   return { lines: lines, per: per };
+}
+/* sizes for each way of measuring: floor L x W, walls L x H, area only (m² + rooms), windows & doors (W x H, how many, m or ft), count */
+function rcpGeom(from, a) {
+  var L = n(a.L), W = n(a.W);
+  if (from === 'area') { var qr = 16; try { qr = n(estRules().quick_room_m2) || 16; } catch (e) { } var rooms = Math.max(1, Math.round(W) || Math.floor(L / qr) || 1); return { A: L, len: L ? rooms * 4 * Math.sqrt(L / rooms) : 0, cnt: L ? 1 : 0, rooms: rooms }; }
+  if (from === 'opening') { var u = a.u || 'ft', f = u === 'ft' ? 0.3048 : (u === 'in' ? 0.0254 : 1), N = Math.max(1, Math.round(n(a.N)) || 1), w = L * f, h = W * f;
+    return w && h ? { A: w * h * N, len: 2 * (w + h) * N, cnt: N } : { A: 0, len: 0, cnt: 0 }; }
+  if (from === 'count') { var c = n(a.N); return { A: 0, len: 0, cnt: c }; }
+  if (from === 'wall') return { A: L * W, len: L, cnt: L * W ? 1 : 0 };
+  return { A: L * W, len: 2 * (L + W), cnt: L * W ? 1 : 0 };
 }
 function rcpNames() { return (ST.s.recipes || []).map(function (r) { return r.item; }); }
 function openRecipe() {
@@ -2049,7 +2069,7 @@ function openRecipe() {
   if (!e.recipe.areas.length) e.recipe.areas.push({ name: 'Area 1', work: works[0].key, L: '', W: '' });
   ST.page = { kind: 'recipe' };
   openPage('Measure & estimate',
-    '<div class="card"><div class="muted">For each area pick the <b>work</b>, type the sizes, then choose options like <b>tile size</b> and extras like <b>skirting</b> or <b>design tiles</b>. The app works out boxes, bags and labour, then puts them into the estimate with your prices. Change the figures any time in the <b>Trade Recipes</b> tab of the Sheet.</div></div>' +
+    '<div class="card"><div class="muted">For each area pick the <b>work</b> (tiling, painting, POP, glass &amp; aluminium, plumbing, dressmaking, ceilings from m² only…), type the sizes or how many, then choose options like <b>tile size</b> and extras like <b>skirting</b>. The app works out boxes, bags and labour, then puts them into the estimate with your prices. Change the figures any time in the <b>Trade Recipes</b> tab of the Sheet.</div></div>' +
     '<div id="rc-areas"></div><button class="btn s w" data-act="rc-add" style="margin-bottom:12px">+ Add area</button><div id="rc-result"></div>' +
     '<button class="btn p w" data-act="rc-put" style="margin:6px 0 30px">Put into estimate</button>');
   renderRcAreas(); renderRcResult();
@@ -2061,9 +2081,8 @@ function renderRcAreas() {
     var wall = w.from === 'wall', groups = rcpGroups(w), optRows = w.rows.filter(function (r) { return r.optional; });
     return '<div class="card"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input class="in" data-ra="' + i + '" data-f="name" value="' + esc(a.name) + '" placeholder="Area name, e.g. Living room" style="flex:1;font-weight:700">' +
       '<button class="del" data-act="rc-del" data-i="' + i + '" aria-label="Remove area">×</button></div>' +
-      fld('Work', '<select class="in" data-rw="' + i + '">' + works.map(function (x) { return '<option value="' + esc(x.key) + '"' + (x.key === w.key ? ' selected' : '') + '>' + esc(x.work) + ' (' + esc(x.trade) + ')</option>'; }).join('') + '</select>') +
-      '<div class="row2">' + fld(wall ? 'Wall length (m)' : 'Length (m)', '<input class="in" inputmode="decimal" data-ra="' + i + '" data-f="L" value="' + esc(a.L) + '" placeholder="e.g. 4">') +
-      fld(wall ? 'Height (m)' : 'Width (m)', '<input class="in" inputmode="decimal" data-ra="' + i + '" data-f="W" value="' + esc(a.W) + '" placeholder="e.g. ' + (wall ? '2.7' : '3.5') + '">') + '</div>' +
+      fld('Work', '<select class="in" data-rw="' + i + '">' + rcpTrades(works).map(function (t) { return '<optgroup label="' + esc(t) + '">' + works.filter(function (x) { return x.trade === t; }).map(function (x) { return '<option value="' + esc(x.key) + '"' + (x.key === w.key ? ' selected' : '') + '>' + esc(x.work) + '</option>'; }).join('') + '</optgroup>'; }).join('') + '</select>') +
+      rcpSizeFields(w.from, a, i) +
       groups.map(function (g) {
         var rows = w.rows.filter(function (r) { return r.group === g; }), cur = (a.pick || {})[g] || rows[0].item;
         return '<label class="f"><span>' + esc(g) + '</span><div class="chips" style="margin:0">' + rows.map(function (r) { return '<button class="chip' + (r.item === cur ? ' on' : '') + '" data-act="rc-pick" data-i="' + i + '" data-g="' + esc(g) + '" data-v="' + esc(r.item) + '">' + esc(((/\d+(\.\d+)?\s*[x×]\s*\d+(\.\d+)?/i.exec(r.item) || [])[0] || r.item.replace(/\s*\((box|bag|pack|piece|bucket|sheet)\)\s*$/i, '')).replace(/\s*x\s*/i, '×')) + '</button>'; }).join('') + '</div></label>';
@@ -2076,11 +2095,26 @@ function renderRcAreas() {
       '<div class="ezline" id="rc-line-' + i + '"></div></div>';
   }).join('');
 }
+function rcpTrades(works) { var t = []; works.forEach(function (x) { if (t.indexOf(x.trade) < 0) t.push(x.trade); }); return t; }
+function rcpSizeFields(from, a, i) {
+  var inp = function (f, ph, mode) { return '<input class="in" inputmode="' + (mode || 'decimal') + '" data-ra="' + i + '" data-f="' + f + '" value="' + esc(a[f] || '') + '" placeholder="' + ph + '">'; };
+  if (from === 'area') return '<div class="row2">' + fld('Total area (m²)', inp('L', 'e.g. 85')) + fld('How many rooms? (blank = guess)', inp('W', 'auto', 'numeric')) + '</div>' +
+    '<div class="muted" style="font-size:12.5px;margin:-4px 0 8px">Leave rooms blank and the app guesses them (about 16 m² a room, like 4 x 4 m: set in Estimator Rules), like a supplier does. Type 1 for one big hall. Measure the rooms for an exact figure.</div>';
+  if (from === 'count') return fld('How many?', inp('N', 'e.g. 2'));
+  if (from === 'opening') { var u = a.u || 'ft';
+    return '<label class="f"><span>Sizes in</span><div class="tog">' + [['ft', 'Feet'], ['in', 'Inches'], ['m', 'Metres']].map(function (x) { return '<button data-act="rc-unit" data-i="' + i + '" data-v="' + x[0] + '" class="' + (u === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div></label>' +
+      '<div class="row3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' + fld('Width', inp('L', u === 'm' ? '1.2' : u === 'in' ? '48' : '4')) + fld('Height', inp('W', u === 'm' ? '1.2' : u === 'in' ? '48' : '4')) + fld('How many', inp('N', '1', 'numeric')) + '</div>'; }
+  var wall = from === 'wall';
+  return '<div class="row2">' + fld(wall ? 'Wall length (m)' : 'Length (m)', inp('L', 'e.g. 4')) + fld(wall ? 'Height (m)' : 'Width (m)', inp('W', 'e.g. ' + (wall ? '2.7' : '3.5'))) + '</div>';
+}
 function renderRcResult() {
   var e = ST.est, r = rcpCalc(e.recipe.areas); ST.rcLast = r;
   e.recipe.areas.forEach(function (a, i) {
     var el = $('#rc-line-' + i), p = r.per[i]; if (!el) return;
-    el.innerHTML = p && p.area ? '<b>' + r1(p.area) + ' m²</b>' + (p.len ? ' · ' + r1(p.len) + ' m ' + (rcpWork(a.work).from === 'wall' ? 'long' : 'round the room') : '') : '<span class="muted">Type the sizes to see this area.</span>';
+    el.innerHTML = !p || !(p.area || p.cnt) ? '<span class="muted">' + (p && p.from === 'count' ? 'Type how many.' : 'Type the sizes to see this area.') + '</span>' :
+      p.from === 'count' ? '<b>' + r1(p.cnt) + '</b> to do' :
+      p.from === 'opening' ? '<b>' + r1(p.area * 10.7639) + ' sq ft</b> (' + r1(p.area) + ' m²) · ' + p.cnt + ' piece' + (p.cnt === 1 ? '' : 's') :
+      '<b>' + r1(p.area) + ' m²</b>' + (p.len ? ' · ' + r1(p.len) + ' m ' + (p.from === 'wall' ? 'long' : p.from === 'area' ? 'round the walls (estimated)' : 'round the room') : '');
   });
   var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
   var labs = {}; ST.labour.forEach(function (l) { labs[l.desc] = l; });
@@ -2094,16 +2128,25 @@ function renderRcResult() {
 function putRecipe() {
   var e = ST.est, r = ST.rcLast || rcpCalc(e.recipe.areas);
   if (!r.lines.length) { toast('Type the sizes of at least one area first', true); return; }
-  var names = rcpNames(), old = {};
+  var old = {};
   e.materials.concat(e.labour).forEach(function (x) { if (!x.heading && n(x.rate)) old[x.desc] = x.rate; });
   var prods = {}; ST.products.forEach(function (p) { prods[p.item] = p; });
   var labs = {}; ST.labour.forEach(function (l) { labs[l.desc] = l; });
-  e.materials = e.materials.filter(function (m) { return m.heading || names.indexOf(m.desc) < 0; });
-  e.labour = e.labour.filter(function (m) { return m.heading || names.indexOf(m.desc) < 0; });
+  // take back only what Measure & estimate put in last time, so lines from the ceiling estimator (same item names) stay
+  var prev = e.recipe.put || {};
+  if (!e.recipe.put) { var names = rcpNames(); e.materials.concat(e.labour).forEach(function (x) { if (!x.heading && names.indexOf(x.desc) >= 0 && !(e.rooms && e.rooms.list && e.rooms.list.length)) prev[(e.labour.indexOf(x) >= 0 ? 'L|' : 'M|') + x.desc] = n(x.qty); }); }
+  var take = function (list, pre) { return list.filter(function (m) { if (m.heading) return true; var k = pre + m.desc; if (prev[k] === undefined) return true; m.qty = r1(n(m.qty) - prev[k]); return m.qty > 0.001; }); };
+  e.materials = take(e.materials, 'M|'); e.labour = take(e.labour, 'L|');
+  var put = {};
   r.lines.forEach(function (l) {
-    if (l.type === 'Labour') { var lb = labs[l.item] || {}; e.labour.push({ desc: l.item, unit: lb.unit || 'sqm', qty: l.qty, rate: old[l.item] || lb.rate || '' }); }
-    else { var p = prods[l.item] || {}; e.materials.push({ desc: l.item, unit: p.unit || '', qty: l.qty, rate: old[l.item] || p.estRate || 0 }); }
+    var lab = l.type === 'Labour', list = lab ? e.labour : e.materials, k = (lab ? 'L|' : 'M|') + l.item;
+    put[k] = l.qty;
+    var same = list.filter(function (x) { return !x.heading && x.desc === l.item; })[0];
+    if (same) { same.qty = r1(n(same.qty) + l.qty); return; }
+    if (lab) { var lb = labs[l.item] || {}; list.push({ desc: l.item, unit: lb.unit || 'sqm', qty: l.qty, rate: old[l.item] || lb.rate || '' }); }
+    else { var p = prods[l.item] || {}; list.push({ desc: l.item, unit: p.unit || '', qty: l.qty, rate: old[l.item] || p.estRate || 0 }); }
   });
+  e.recipe.put = put;
   if (!e.title) { var w = rcpWork(e.recipe.areas[0].work); e.title = w ? w.work : ''; }
   closePage(); renderEstForm(); saveDraft();
   toast(r.lines.length + ' lines put into the estimate');
@@ -2115,6 +2158,7 @@ function rcAct(a, d, el) {
     case 'rc-del': ST.est.recipe.areas.splice(+d.i, 1); renderRcAreas(); renderRcResult(); saveDraft(); return true;
     case 'rc-pick': var ar = ST.est.recipe.areas[+d.i]; ar.pick = ar.pick || {}; ar.pick[d.g] = d.v; renderRcAreas(); renderRcResult(); saveDraft(); return true;
     case 'rc-put': putRecipe(); return true;
+    case 'rc-unit': ST.est.recipe.areas[+d.i].u = d.v; renderRcAreas(); renderRcResult(); saveDraft(); return true;
   }
   return false;
 }
@@ -2982,7 +3026,7 @@ document.addEventListener('click', function (ev) {
       saveOrQueue('apiStockIn', x, 'Stock in ' + x.qty + ' × ' + x.item, 'Saving…', function (p) { ST.products = p; closeSheet(); renderStock(); renderPos(); toast('Stock received: ' + x.item); }, function () { closeSheet(); });
       break;
     /* share */
-    case 'share': shareSheet(d.kind, d.no, d.kind === 'payment' ? 'Payment receipt ' + d.no : d.kind === 'estimate' ? 'Estimate ' + d.no : 'Receipt ' + d.no); break;
+    case 'share': shareSheet(d.kind, d.no, d.kind === 'payment' ? 'Payment receipt ' + d.no : d.kind === 'estimate' ? 'Estimate ' + d.no : d.kind === 'invoice' ? 'Invoice for ' + d.no : d.kind === 'proforma' ? 'Proforma invoice for ' + d.no : 'Receipt ' + d.no); break;
     case 'mkpdf': makePdf(d.kind, d.no); break;
     case 'copy': try { navigator.clipboard.writeText(d.t).then(function () { toast('Link copied'); }); } catch (e) { toast('Could not copy', true); } break;
     case 'page-close': var wasEz = ST.page && (ST.page.kind === 'estimator' || ST.page.kind === 'recipe'); closePage(); if (wasEz) renderEstForm(); if (ST.view === 'est' && ST.estTab === 'list') loadEstList(); if (ST.view === 'home') go('home'); if (ST.view === 'jobs') renderJobs(); break;
