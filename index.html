@@ -239,6 +239,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
 .qbadge{background:#FFD36B;color:#5A3C00;border-radius:20px;font-size:11px;font-weight:700;padding:3px 8px;border:0;white-space:nowrap}
 /* v2 */
 .staff .owner-only{display:none!important}
+body:not(.staff) .staff-show{display:none!important}
 .qa-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 4px}
 .qa-mini button{border:0;background:#fff;border-radius:12px;padding:12px 6px;font-weight:700;color:var(--deep);font-size:13px;box-shadow:0 0 0 1px rgba(16,50,70,.07);display:flex;flex-direction:column;align-items:center;gap:4px}
 .qa-mini svg{width:22px;height:22px;color:var(--mid)}
@@ -295,7 +296,8 @@ table.rep td.neg{color:var(--bad);font-weight:700}
       <button data-mod="jobs" data-act="go-jobs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V9l7-5 7 5v12"/><path d="M9 21v-6h6v6"/></svg>Jobs</button>
       <button data-mod="exp" data-act="exp-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M8 7h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h7"/></svg>Expense</button>
       <button data-act="go-owing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Owing</button>
-      <button data-act="nav" data-v="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Reports</button>
+      <button class="owner-only" data-act="nav" data-v="money"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.5"/><path d="M6 10v5M18 10v5"/></svg>Money</button>
+      <button class="staff-show" data-act="nav" data-v="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Reports</button>
     </div>
     <div id="home-follow" data-mod="est"></div>
     <div id="home-low"></div>
@@ -365,6 +367,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
   <section class="view" id="v-more">
     <div class="card who" id="who"></div>
     <div class="tiles">
+      <button class="tile owner-only" data-act="nav" data-v="money"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.5"/><path d="M6 10v5M18 10v5"/></svg><div><b>Money</b><br><span>What came in, what you spent, what you have</span></div></button>
       <button class="tile owner-only" data-mod="mgmt" data-act="nav" data-v="mgmt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><div><b>Management</b><br><span>Targets, tools, training, enquiries</span></div></button>
       <button class="tile" data-act="nav" data-v="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><div><b>History</b><br><span>Everything, day by day, with a money check</span></div></button>
       <button class="tile" data-mod="inc" data-act="nav" data-v="inc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg><div><b>Other income</b><br><span>Tool hire, fees, scrap, commission</span></div></button>
@@ -380,6 +383,8 @@ table.rep td.neg{color:var(--bad);font-weight:700}
     <button class="btn s w" style="margin-top:16px" data-act="logout">Log out</button>
   </section>
 
+  <!-- MONEY (owner) -->
+  <section class="view" id="v-money"><div id="mn-body"></div></section>
   <!-- HISTORY -->
   <section class="view" id="v-hist"><div id="h-top"></div><div id="h-body"></div></section>
   <!-- OTHER INCOME -->
@@ -423,9 +428,10 @@ table.rep td.neg{color:var(--bad);font-weight:700}
       <div class="search" style="flex:1;margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="in" id="stk-q" placeholder="Search products"></div>
       <button class="btn p" data-act="stock-in">+ Receive</button>
     </div>
+    <button class="btn s w owner-only" style="margin:-2px 0 10px" data-act="m7-new">+ New item</button>
     <div class="chips" id="stk-cats"></div>
     <div id="stk-items"></div>
-    <p class="muted" style="margin:14px 4px">Prices, new products and opening stock are edited in the <b>Products</b> tab of the Google Sheet. Tap refresh (top right) to load changes.</p>
+    <p class="muted" style="margin:14px 4px">Tap an item to receive stock, take it to a job, count it or change its price. Stock = opening + received − sold − taken to jobs.</p>
   </section>
 </main>
 
@@ -455,7 +461,7 @@ table.rep td.neg{color:var(--bad);font-weight:700}
 window.KG_PWA = true;
 function KG_SERVER() { try { return localStorage.getItem('kg_server') || ''; } catch (e) { return ''; } }
 function KG_SET_SERVER(u) { try { if (u) localStorage.setItem('kg_server', u); else localStorage.removeItem('kg_server'); } catch (e) { } }
-var KG_READS = { apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1, apiPeriod: 1, apiClients: 1, apiClient: 1, apiMgmt: 1, apiHistory: 1, apiIncome: 1, apiFollowUps: 1 };
+var KG_READS = { apiMoney: 1, apiInit: 1, apiStats: 1, apiProducts: 1, apiReport: 1, apiGetEstimate: 1, apiListEstimates: 1, apiGetSale: 1, apiListSales: 1, apiOwing: 1, apiExpenses: 1, apiWorkers: 1, apiJobs: 1, apiGetJob: 1, apiPeriod: 1, apiClients: 1, apiClient: 1, apiMgmt: 1, apiHistory: 1, apiIncome: 1, apiFollowUps: 1 };
 function kgCached(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
 function kgKeep(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { } }
 function kgCall(fn, args) {
@@ -665,10 +671,11 @@ function go(v) {
   ST.view = v;
   if (v === 'mgmt' && ST.user && !ST.user.owner) v = 'more';
   if (!modOn(v)) v = 'home';
-  var tab = ['exp', 'work', 'stock', 'rep', 'clients', 'mgmt', 'hist', 'inc'].indexOf(v) >= 0 ? 'more' : v;
+  if (v === 'money' && ST.user && !ST.user.owner) v = 'more';
+  var tab = ['exp', 'work', 'stock', 'rep', 'clients', 'mgmt', 'hist', 'inc', 'money'].indexOf(v) >= 0 ? 'more' : v;
   $$('.view').forEach(function (x) { x.classList.toggle('on', x.id === 'v-' + v); });
   $$('.nav button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === tab); });
-  $('#topSub').textContent = { home: 'Sales & Estimates', est: 'Estimates', sales: 'Sales / POS', stock: 'Stock', jobs: 'Jobs', more: 'More', exp: 'Expenses', work: 'Workers & wages', rep: 'Reports', clients: 'Clients', mgmt: 'Management', hist: 'History', inc: 'Other income' }[v];
+  $('#topSub').textContent = { home: 'Sales & Estimates', est: 'Estimates', sales: 'Sales / POS', stock: 'Stock', jobs: 'Jobs', more: 'More', exp: 'Expenses', work: 'Workers & wages', rep: 'Reports', clients: 'Clients', mgmt: 'Management', hist: 'History', inc: 'Other income', money: 'Money' }[v];
   window.scrollTo(0, 0);
   updateBar();
   if (v === 'home' && ST.stats) { api('apiStats').then(function (s) { ST.stats = s; renderHome(); }).catch(function () { }); loadHomePeriod(); }
@@ -681,6 +688,7 @@ function go(v) {
   if (v === 'mgmt') loadMgmt();
   if (v === 'hist') loadHistory();
   if (v === 'inc') loadIncome();
+  if (v === 'money') loadMoney();
 }
 function updateBar() {
   var bar = $('#abar');
@@ -981,8 +989,8 @@ function openEst(est) {
     (c.job ? '<div style="margin-top:8px">' + esc(c.job) + '</div>' : '') +
     '<div class="muted" style="margin-top:6px">' + esc(c.dateNice) + ' · valid until ' + esc(c.validUntil) + ' · ' + (c.matBy === 'Client' ? 'client buys materials' : 'we buy materials') + '</div>' +
     '<label class="f" style="margin:12px 0 0"><span>Change status</span><select class="in" id="est-status">' + opts(ST.statuses, c.status) + '</select></label></div>' +
-    '<div class="acts" style="margin:0 0 12px"><button class="btn g" data-act="share" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.wa + 'Send on WhatsApp</button><button class="btn s" data-act="share" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Make PDF</button>' +
-    '<button class="btn s" data-act="share" data-kind="invoice" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Invoice</button><button class="btn s" data-act="share" data-kind="proforma" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Proforma invoice</button>' +
+    '<div class="acts" style="margin:0 0 12px"><button class="btn g" data-act="m7-prev" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.wa + 'Preview &amp; send</button><button class="btn s" data-act="share" data-kind="estimate" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Send now</button>' +
+    '<button class="btn s" data-act="m7-prev" data-kind="invoice" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Invoice</button><button class="btn s" data-act="m7-prev" data-kind="proforma" data-no="' + esc(c.no) + '">' + ICON.pdf + 'Proforma invoice</button>' +
     '<button class="btn p" data-act="est-pay"' + (c.balance > 0 ? '' : ' disabled') + '>Record payment</button>' + (ST.s.online && c.balance > 0 ? '<button class="btn g" data-act="pl-open" data-k="estimate" data-no="' + esc(c.no) + '">' + ICON.wa + 'Send MoMo pay link</button>' : '') + '<button class="btn s" data-act="est-edit">Edit</button></div>' +
     '<div class="card"><h3>Money</h3>' + taxKv(c.tax, n(c.taxRate)) + kv('Grand total', money(c.grand), 'b') + (c.matBy === 'Client' ? kv('Workmanship payable to us', money(c.payable), 'b') : '') + kv('Paid', money(c.paid)) +
     '<div class="kv big"><span>Balance</span><span class="money">' + money(c.balance) + '</span></div>' +
@@ -1208,44 +1216,49 @@ function renderStock() {
   var l = ST.products.filter(function (p) { return (ST.stkCat === 'All' || p.cat === ST.stkCat) && p.item.toLowerCase().indexOf(q) >= 0; });
   $('#stk-items').innerHTML = l.length ? l.map(function (p) {
     var low = p.stock !== null && ((p.low !== null && p.stock <= p.low) || p.stock <= 0);
-    return '<div class="item" data-act="stock-in" data-item="' + esc(p.item) + '"><div class="mid"><div class="t">' + esc(p.item) + '</div><div class="sub">' + esc(p.cat) + ' · sell ' + money(p.price) + ' · estimate ' + money(p.estRate) + '</div></div>' +
-      '<div class="end">' + (p.stock === null ? '<span class="badge">not tracked</span>' : '<div class="money" style="font-size:20px;color:' + (low ? 'var(--bad)' : 'var(--deep)') + '">' + esc(p.stock) + '</div><div class="muted">' + esc(p.unit) + (low ? ' · low' : '') + '</div>') + '</div></div>';
+    return '<div class="item" data-act="stk-open" data-item="' + esc(p.item) + '"><div class="mid"><div class="t">' + esc(p.item) + '</div><div class="sub">' + esc(p.cat) + ' · sell ' + money(p.price) + ' · estimate ' + money(p.estRate) + '</div></div>' +
+      '<div class="end">' + (p.stock === null ? '<span class="badge">not counted</span>' : '<div class="money" style="font-size:20px;color:' + (low ? 'var(--bad)' : 'var(--deep)') + '">' + esc(p.stock) + '</div><div class="muted">' + esc(p.unit) + (low ? ' · low' : '') + '</div>') + '</div></div>';
   }).join('') : '<div class="empty">No products found</div>';
 }
 function stockForm(item) {
   openSheet('<h2>Receive stock</h2>' + fld('Item', '<select class="in" id="si-item">' + opts(ST.products.map(function (p) { return p.item; }), item || '') + '</select>') +
     '<div class="row2">' + fld('Quantity received', '<input class="in" id="si-qty" inputmode="decimal">') + fld('Unit cost (GH₵)', '<input class="in" id="si-cost" inputmode="decimal">') + '</div>' +
     '<div class="row2">' + fld('Supplier', '<input class="in" id="si-sup">') + fld('Date', '<input class="in" type="date" id="si-date" value="' + today() + '">') + '</div>' +
+    (ST.user && ST.user.owner ? fld('Did you pay for it now?', '<select class="in" id="si-paid"><option value="">No / already in expenses</option><option>Cash</option><option>MoMo</option><option>Bank</option></select>') +
+      '<div class="muted" style="margin:-4px 0 10px;font-size:12.5px">If you pick Cash, MoMo or Bank, quantity × unit cost is also saved as money spent (Stock for the shop).</div>' : '') +
     fld('Note', '<input class="in" id="si-note">') + '<button class="btn p w" data-act="si-save">Save</button>');
 }
 
 /* ============ share / pdf ============ */
 function shareSheet(kind, no, head) {
   openSheet('<h2>' + esc(head || 'Share') + '</h2><div class="muted" style="margin-bottom:12px">' +
-    (kind === 'payment' ? 'Send the client a receipt for this payment.' : kind === 'sale' ? 'Send the customer their receipt.' : kind === 'period' ? 'All the tables for this period in one PDF. Open it to print or save. A copy is kept in Google Drive, in the Monthly reports folder.' : kind === 'statement' ? 'Send the client their statement.' : kind === 'invoice' ? 'An invoice asks the client to pay: it shows what is paid so far and the balance due, with a due date. Payments you record update it.' : kind === 'proforma' ? 'Same items and prices as the estimate, titled PROFORMA INVOICE, for clients whose office needs an invoice before paying.' : 'Send the estimate to the client.') + '</div><div id="sh-b"></div>');
+    (kind === 'payment' ? 'Send the client a receipt for this payment.' : kind === 'sale' ? 'Send the customer their receipt.' : kind === 'period' ? 'All the tables for this period in one PDF. Open it to print or save. A copy is kept in Google Drive, in the Monthly reports folder.' : kind === 'statement' ? 'Send the client their statement.' : kind === 'invoice' ? 'An invoice asks the client to pay: it shows what is paid so far and the balance due, with a due date. Payments you record update it.' : kind === 'proforma' ? 'Same items and prices as the estimate, titled PROFORMA INVOICE, for clients whose office needs an invoice before paying.' : kind === 'voucher' ? 'A receipt for money you paid. They sign it; you keep a copy.' : 'Send the estimate to the client.') + '</div><div id="sh-b"></div>');
   makePdf(kind, no);
 }
 function makePdf(kind, no) {
-  var box = $('#sh-b'); if (box) box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 8px"></div>Making PDF… (a few seconds)</div>';
-  api('apiPdf', kind, no).then(function (r) {
+  var box = $('#sh-b'); if (box) box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 8px"></div>Making the PDF… (a few seconds)</div>';
+  var pre = ST.pdfPre && ST.pdfPre.kind === kind && ST.pdfPre.no === no && !ST.pdfPre.failed && Date.now() - ST.pdfPre.at < 600000 ? ST.pdfPre.p : null;
+  (pre || api('apiPdf', kind, no)).then(function (r) {
+    ST.pdfPre = null;
     var wa = 'https://wa.me/' + (r.wa || '') + '?text=' + encodeURIComponent(r.text);
     var sms = 'sms:' + (r.wa ? '+' + r.wa : '') + '?body=' + encodeURIComponent(r.text);
-    ST.pdfFile = null;
+    ST.pdfFile = null; ST.pdfText = r.text;
     if (r.file) { try { var bin = atob(r.file), u8 = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); ST.pdfFile = new File([u8], r.fileName || (no + '.pdf'), { type: 'application/pdf' }); } catch (e) { } }
     var canShare = !!(ST.pdfFile && navigator.canShare && navigator.canShare({ files: [ST.pdfFile] }));
     if (ST.pdfUrl) try { URL.revokeObjectURL(ST.pdfUrl); } catch (e) { }
     ST.pdfUrl = ST.pdfFile ? URL.createObjectURL(ST.pdfFile) : '';
-    var html = (canShare ? '<button class="btn g w" data-act="share-file">' + ICON.pdf + 'Send PDF file (WhatsApp, email…)</button>' +
-        '<div class="muted" id="pdf-hint" style="font-size:12.5px;margin:6px 0 6px">Sends only the PDF, nothing else. Pick WhatsApp, then the person.</div>' +
-        '<button class="btn s w" style="margin-bottom:10px" data-act="save-pdf">' + ICON.pdf + 'Save PDF to phone</button>' :
-        (ST.pdfFile ? '<a class="btn g w" download="' + esc(ST.pdfFile.name) + '" href="' + esc(ST.pdfUrl) + '">' + ICON.pdf + 'Download PDF file</a><div class="muted" style="font-size:12.5px;margin:6px 0 10px">Then attach it in WhatsApp or email.</div>' : '')) +
-      '<a class="btn ' + (canShare || ST.pdfFile ? 's' : 'g') + ' w" target="_blank" rel="noopener" href="' + esc(wa) + '">' + ICON.wa + 'Send as a link on WhatsApp' + (r.wa ? '' : ' (pick contact)') + '</a>' +
-      '<div class="acts"><a class="btn s" href="' + esc(sms) + '">Send by SMS</a><a class="btn s" target="_blank" rel="noopener" href="' + esc(r.url) + '">' + ICON.pdf + 'Open PDF</a></div>' +
-      '<div class="muted" style="font-size:12.5px;margin-top:6px">To print on paper (A4): tap <b>Open PDF</b>, then the printer icon or <b>⋮ → Print</b>.</div>' +
-      '<button class="btn s w" style="margin-top:8px" data-act="copy" data-t="' + esc(r.url) + '">Copy link</button>' +
-      (r.wa ? '' : '<div class="muted" style="margin-top:8px">No phone number saved for this client, so WhatsApp will ask you to pick the contact.</div>');
+    // one big button: the PDF file itself (best), else a link on WhatsApp. Everything else is folded away.
+    var main = canShare ? '<button class="btn g w" style="padding:16px;font-size:17px" data-act="share-file">' + ICON.wa + 'Send PDF</button>' +
+        '<div class="muted" id="pdf-hint" style="font-size:13px;margin:8px 0 12px">Tap it, pick <b>WhatsApp</b>, then the person' + (r.wa ? '' : '') + '. They get the PDF itself.</div>'
+      : '<a class="btn g w" style="padding:16px;font-size:17px" target="_blank" rel="noopener" href="' + esc(wa) + '">' + ICON.wa + 'Send on WhatsApp</a>' +
+        '<div class="muted" style="font-size:13px;margin:8px 0 12px">' + (r.wa ? 'Opens the chat with the message and a link to the PDF.' : 'No phone number saved, so WhatsApp will ask you to pick the contact.') + '</div>';
+    var html = main +
+      '<div class="acts" style="margin:0">' + (ST.pdfFile ? '<button class="btn s" data-act="save-pdf">' + ICON.pdf + 'Save to phone</button>' : '') + '<a class="btn s" target="_blank" rel="noopener" href="' + esc(r.url) + '">' + ICON.pdf + 'Open / print</a></div>' +
+      '<details style="margin-top:10px"><summary class="muted" style="cursor:pointer;padding:6px 0">Other ways to send</summary>' +
+      (canShare ? '<a class="btn s w" style="margin-top:6px" target="_blank" rel="noopener" href="' + esc(wa) + '">' + ICON.wa + 'Send as a link on WhatsApp</a>' : '') +
+      '<div class="acts"><a class="btn s" href="' + esc(sms) + '">Send by SMS</a><button class="btn s" data-act="copy" data-t="' + esc(r.url) + '">Copy link</button></div></details>';
     if ($('#sh-b')) $('#sh-b').innerHTML = html; else openSheet('<h2>Ready</h2>' + html);
-  }).catch(function (e) { if ($('#sh-b')) $('#sh-b').innerHTML = '<div class="empty" style="color:var(--bad)">' + esc(e.message) + '</div>'; });
+  }).catch(function (e) { ST.pdfPre = null; if ($('#sh-b')) $('#sh-b').innerHTML = '<div class="empty" style="color:var(--bad)">' + esc(isNetErr(e) ? 'No internet. The PDF is made online: connect and tap again.' : e.message) + '</div><button class="btn s w" data-act="mkpdf" data-kind="' + esc(kind) + '" data-no="' + esc(no) + '">Try again</button>'; });
 }
 
 /* ============ REPORTS (month by month, any year) ============ */
@@ -2686,8 +2699,9 @@ function openJob(j) {
     '<button class="btn g" data-act="job-msg" data-t="thanks">' + ICON.wa + 'Thank you + review</button><button class="btn s" data-act="job-msg" data-t="video">Ask for a video</button>' +
     (j.balance > 0 ? '<button class="btn s" data-act="job-msg" data-t="reminder">Payment reminder</button>' : '') + '</div>' +
     (own ? '<div class="card owner-only"><h3>Money on this job</h3>' + kv('Payable by client', money(j.payable), 'b') + kv('Received', money(j.paid)) + kv('Still owed', money(j.balance)) +
-      kv('Expenses & wages', '- ' + money(j.expenses)) + '<div class="kv big"><span>Profit so far</span><span class="money" style="color:' + (j.profit < 0 ? 'var(--bad)' : 'var(--ok)') + '">' + money(j.profit) + '</span></div>' +
-      '<div class="muted">Received minus expenses linked to this job.</div></div>' : '') +
+      kv('Wages, expenses & materials', '- ' + money(j.expenses)) + '<div class="kv big"><span>Profit so far</span><span class="money" style="color:' + (j.profit < 0 ? 'var(--bad)' : 'var(--ok)') + '">' + money(j.profit) + '</span></div>' +
+      '<div class="muted">Received minus everything spent on this job (people, expenses, materials bought outside and from your stock).</div></div>' : '') +
+    jobExtraCards(j) +
     '<div class="card"><h3>Updates &amp; photos</h3>' + (j.updates && j.updates.length ? '<div class="tl">' + j.updates.map(function (u) {
       return '<div class="ev"><div style="font-weight:700">' + esc(u.progress) + '%' + (u.stage ? ' · ' + esc(u.stage) : '') + '</div><div class="muted">' + esc(u.date) + ' · ' + esc(u.by) + '</div>' +
         (u.note ? '<div style="margin-top:4px">' + esc(u.note) + '</div>' : '') +
@@ -2798,6 +2812,7 @@ function saveExpense(kind) {
   if (isOffline()) { queueIt('apiAddExpense', x, xl); closeSheet(); return; }
   busy(api('apiAddExpense', x), 'Saving…').then(function (r) {
     closeSheet(); toast((kind === 'wage' ? 'Paid ' : 'Expense saved ') + money(r.amount));
+    if (kind === 'wage') paidSheet(r);
     if (ST.view === 'exp') loadExp();
     if (ST.view === 'work') loadWorkers();
     if (ST.page && ST.page.kind === 'job') api('apiGetJob', ST.page.data.no).then(openJob).catch(function () { });
@@ -2809,6 +2824,7 @@ function expDetail(no) {
   var x = (ST.expList || []).concat(ST.page && ST.page.data && (ST.page.data.expensesList || ST.page.data.last) || []).filter(function (e) { return e.no === no; })[0]; if (!x) return;
   openSheet('<h2>' + esc(x.cat) + '</h2><div class="money" style="font-size:28px;color:var(--bad)">' + money(x.amount) + '</div>' +
     kv('Number', x.no) + kv('Date', x.dateNice) + kv('Paid by', x.method) + (x.desc ? kv('Description', x.desc) : '') + (x.job ? kv('Job', x.job) : '') + (x.worker ? kv('Worker', x.worker) : '') + kv('Entered by', x.by) +
+    (ST.user.owner && x.worker ? '<button class="btn g w" style="margin-top:10px" data-act="m7-voucher" data-no="' + esc(x.no) + '" data-w="' + esc(x.worker) + '">' + ICON.pdf + 'Receipt for ' + esc(x.worker) + '</button>' : '') +
     (ST.user.owner ? '<div class="acts"><button class="btn s" data-act="sheet-close">Close</button><button class="btn s" style="color:var(--bad)" data-act="exp-del-ask" data-no="' + esc(x.no) + '">Delete</button></div><div id="xd-confirm"></div>' : ''));
 }
 
@@ -2852,6 +2868,256 @@ function saveWorker(old) {
   }).catch(function () { });
 }
 
+/* ============ 8.7: STOCK ITEMS, JOB MATERIALS, PEOPLE ON A JOB, MONEY, PREVIEW ============ */
+function prodOf(item) { return (ST.products || []).filter(function (p) { return p.item === item; })[0]; }
+function stkOpen(item) {
+  var p = prodOf(item); if (!p) { stockForm(item); return; }
+  var own = ST.user && ST.user.owner;
+  openSheet('<h2>' + esc(p.item) + '</h2><div class="muted" style="margin-bottom:10px">' + esc(p.cat) + ' · sell ' + money(p.price) + ' · estimate ' + money(p.estRate) + '</div>' +
+    '<div class="stats" style="margin-bottom:12px;grid-template-columns:1fr 1fr">' + stat('In stock', p.stock === null ? 'not counted' : p.stock + ' ' + (p.unit || ''), p.stock === null ? 'tap Count stock' : (p.low !== null ? 'low at ' + p.low : ''), true) +
+    stat('Last cost', p.cost ? money(p.cost) : '—', 'from Receive stock') + '</div>' +
+    '<button class="btn p w" data-act="m7-recv" data-item="' + esc(p.item) + '">+ Receive stock</button>' +
+    (modOn('jobs') ? '<button class="btn s w" style="margin-top:8px" data-act="m7-out" data-item="' + esc(p.item) + '">Take to a job</button>' : '') +
+    (own ? '<div class="acts"><button class="btn s" data-act="m7-count" data-item="' + esc(p.item) + '">Count stock</button><button class="btn s" data-act="m7-edit" data-item="' + esc(p.item) + '">Edit item / price</button></div>' : '') +
+    '<div class="muted" style="margin-top:8px">Stock = opening + received − sold − taken to jobs. If it does not match the store, tap <b>Count stock</b> and type what is really there.</div>');
+}
+function productForm(item) {
+  var p = item ? prodOf(item) : null, cats = uniq((ST.products || []).map(function (x) { return x.cat; }));
+  openSheet('<h2>' + (p ? 'Edit ' + esc(p.item) : 'New item') + '</h2>' +
+    fld('Item name', '<input class="in" id="pf-item" value="' + esc(p ? p.item : '') + '"' + (p ? ' readonly style="opacity:.7"' : ' placeholder="e.g. Plasterboard 12mm sheet"') + '>') +
+    '<div class="row2">' + fld('Category', '<input class="in" id="pf-cat" list="pf-cats" value="' + esc(p ? p.cat : (ST.stkCat !== 'All' ? ST.stkCat : '')) + '"><datalist id="pf-cats">' + cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>') +
+    fld('Unit', '<input class="in" id="pf-unit" value="' + esc(p ? p.unit : 'pc') + '" placeholder="pc, sheet, bag">') + '</div>' +
+    '<div class="row2">' + fld('Selling price (GH₵)', '<input class="in" inputmode="decimal" id="pf-price" value="' + esc(p ? p.price : '') + '">') +
+    fld('Price on estimates (GH₵)', '<input class="in" inputmode="decimal" id="pf-est" value="' + esc(p ? p.estRate : '') + '" placeholder="same as selling">') + '</div>' +
+    '<div class="row2">' + (p ? '' : fld('How many you have now', '<input class="in" inputmode="decimal" id="pf-open" placeholder="e.g. 40">')) +
+    fld('Warn me when stock is at', '<input class="in" inputmode="decimal" id="pf-low" value="' + esc(p && p.low !== null ? p.low : '') + '" placeholder="e.g. 10">') + '</div>' +
+    '<button class="btn p w" data-act="m7-psave" data-old="' + esc(p ? p.item : '') + '">Save</button>' +
+    (p ? '<div class="muted" style="margin-top:8px">The name cannot change here, because your past sales and stock use it. Change it in the Products tab of the Sheet if you must.</div>' : ''));
+}
+function productSave(old) {
+  var x = { oldItem: old, item: $('#pf-item').value.trim(), cat: $('#pf-cat').value.trim(), unit: $('#pf-unit').value.trim(), price: $('#pf-price').value, estRate: $('#pf-est').value, low: $('#pf-low').value, opening: $('#pf-open') ? $('#pf-open').value : '' };
+  if (!x.item) { toast('Type the item name', true); return; }
+  if (x.price === '') { toast('Type the selling price', true); return; }
+  busy(api('apiSaveProduct', x), 'Saving…').then(function (p) { ST.products = p; closeSheet(); renderStock(); renderPos(); toast('Saved ' + x.item); }).catch(function () { });
+}
+function countForm(item) {
+  var p = prodOf(item); if (!p) return;
+  openSheet('<h2>Count stock</h2><div class="muted" style="margin-bottom:10px">' + esc(p.item) + ' · the app says <b>' + (p.stock === null ? 'not counted yet' : p.stock + ' ' + esc(p.unit)) + '</b></div>' +
+    fld('How many are really in the store now?', '<input class="in" inputmode="decimal" id="cf-n" placeholder="count them">') +
+    '<button class="btn p w" data-act="m7-csave" data-item="' + esc(p.item) + '">Save count</button>' +
+    '<div class="muted" style="margin-top:8px">The difference is saved in the Stock In tab as a "Stock count" line, so you can always see what was corrected.</div>');
+  setTimeout(function () { var i = $('#cf-n'); if (i) i.focus(); }, 50);
+}
+function stockOutForm(item, job) {
+  ensureJobs().then(function (jobs) {
+    var act = jobs.filter(function (j) { return isActiveJob(j) || j.no === job; });
+    if (!act.length) { toast('No active job. Accept an estimate first.', true); return; }
+    var items = (ST.products || []).map(function (p) { return p.item; });
+    openSheet('<h2>Take from my stock</h2><div class="muted" style="margin-bottom:10px">Materials leaving your store for a site. They come off your stock and count as a cost of the job. For materials you buy outside, use <b>Bought outside</b> instead.</div>' +
+      fld('Job', '<select class="in" id="so-job">' + act.map(function (j) { return '<option value="' + esc(j.no) + '"' + (j.no === job ? ' selected' : '') + '>' + esc(j.no + ' · ' + j.client) + '</option>'; }).join('') + '</select>') +
+      fld('Item', '<select class="in" id="so-item">' + opts(items, item || items[0]) + '</select>') +
+      '<div class="muted" id="so-have" style="margin:-4px 0 8px"></div>' +
+      '<div class="row2">' + fld('Quantity', '<input class="in" inputmode="decimal" id="so-qty">') + fld('Date', '<input class="in" type="date" id="so-date" value="' + today() + '">') + '</div>' +
+      '<label style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="checkbox" id="so-back"> Brought back to the store (not used)</label>' +
+      fld('Note', '<input class="in" id="so-note" placeholder="e.g. taken by Kojo">') +
+      '<button class="btn p w" data-act="m7-osave">Save</button>');
+    var show = function () { var p = prodOf($('#so-item').value); $('#so-have').textContent = p ? (p.stock === null ? 'Stock not counted yet' : 'In stock: ' + p.stock + ' ' + p.unit) : ''; };
+    $('#so-item').addEventListener('change', show); show();
+  }).catch(function () { });
+}
+function stockOutSave() {
+  var q = n($('#so-qty').value), x = { job: $('#so-job').value, item: $('#so-item').value, qty: $('#so-back').checked ? -q : q, date: $('#so-date').value, note: $('#so-note').value.trim() };
+  if (q <= 0) { toast('Enter the quantity', true); return; }
+  saveOrQueue('apiStockOut', x, (x.qty < 0 ? 'Back to store ' : 'To job ') + q + ' × ' + x.item, 'Saving…', function (r) {
+    ST.products = r.products; closeSheet(); toast(x.qty < 0 ? 'Back in stock: ' + x.item : 'Taken to ' + x.job + ': ' + x.item);
+    if (ST.view === 'stock') renderStock();
+    if (ST.page && ST.page.kind === 'job' && ST.page.data.no === x.job) openJob(r.job);
+  }, function () { closeSheet(); });
+}
+
+/* ---- job page: materials + people ---- */
+function jobExtraCards(j) {
+  var own = j.payable !== undefined, h = '';
+  var used = j.stockUsed || [];
+  h += '<div class="card"><h3>Materials' + (own ? ' <span class="money">' + money(r2(n(j.stockCost) + n(j.boughtOutside))) + '</span>' : '') + '</h3>' +
+    (used.length ? '<div class="sec" style="margin-top:0">From my stock</div><table class="lines">' + used.map(function (x) {
+      return '<tr><td>' + esc(x.item) + (x.qty < 0 ? ' <span class="badge">brought back</span>' : '') + '<div class="muted">' + esc(x.dateNice) + ' · ' + esc(Math.abs(x.qty)) + (own ? ' × ' + money(x.cost) : '') + (x.note ? ' · ' + esc(x.note) : '') + '</div></td><td class="r">' + (own ? money(x.amount) : esc(x.qty)) + '</td></tr>';
+    }).join('') + '</table>' : '') +
+    (own && j.boughtOutside ? kv('Bought outside (in expenses below)', money(j.boughtOutside)) : '') +
+    (!used.length && !j.boughtOutside ? '<div class="muted" style="margin-bottom:8px">Nothing recorded yet.</div>' : '') +
+    '<div class="acts" style="margin-bottom:0">' + (modOn('stock') ? '<button class="btn s" data-act="m7-out" data-job="' + esc(j.no) + '">+ From my stock</button>' : '') +
+    '<button class="btn s" data-act="m7-outside">+ Bought outside</button></div></div>';
+  if (own && ST.user && ST.user.owner) {
+    var ppl = j.people || [];
+    h += '<div class="card"><h3>People on this job</h3>' + (ppl.length ? ppl.map(function (p, i) {
+      return '<div class="item" data-act="m7-person" data-i="' + i + '"><div class="mid"><div class="t">' + esc(p.name) + '</div><div class="sub">' + esc(p.type) + (p.days ? ' · ' + p.days + ' day(s)' : '') + ' · ' + p.count + ' payment' + (p.count === 1 ? '' : 's') + (p.agreed !== null ? ' · agreed ' + money(p.agreed) : '') + '</div></div>' +
+        '<div class="end"><div class="money">' + money(p.paid) + '</div>' + (p.agreed !== null ? '<div class="muted" style="color:' + (p.balance > 0 ? 'var(--bad)' : 'var(--ok)') + ';font-weight:700">' + (p.balance > 0 ? 'owe ' + money(p.balance) : 'fully paid') + '</div>' : '<div class="muted">paid</div>') + '</div></div>';
+    }).join('') + kv('Total paid to people', money(ppl.reduce(function (a, p) { return a + p.paid; }, 0)), 'b') +
+      '<div class="muted" style="margin-top:6px">Tap a name to pay, see each payment or send a receipt.</div>'
+      : '<div class="muted">No one paid on this job yet.</div>') +
+      '<div class="acts" style="margin-bottom:0"><button class="btn p" data-act="job-pay">Pay someone</button><button class="btn s" data-act="m7-agree">Agree a price (subcontractor)</button></div></div>';
+  }
+  return h;
+}
+function personSheet(i) {
+  var j = ST.page.data, p = (j.people || [])[i]; if (!p) return;
+  openSheet('<h2>' + esc(p.name) + '</h2><div class="muted" style="margin-bottom:10px">' + esc(p.type) + ' · ' + esc(j.no) + ' · ' + esc(j.client) + '</div>' +
+    kv('Paid on this job', money(p.paid), 'b') + (p.days ? kv('Days', p.days) : '') +
+    (p.agreed !== null ? kv('Agreed price', money(p.agreed)) + '<div class="kv big"><span>Balance to pay</span><span class="money">' + money(p.balance) + '</span></div>' : '') +
+    (p.payments.length ? '<div class="sec">Payments (tap for receipt)</div>' + p.payments.map(function (x) {
+      return '<div class="item" data-act="m7-voucher" data-no="' + esc(x.no) + '" data-w="' + esc(p.name) + '"><div class="mid"><div class="t">' + esc(x.desc || x.cat) + '</div><div class="sub">' + esc(x.dateNice) + ' · ' + esc(x.method) + ' · ' + esc(x.no) + '</div></div><div class="end"><div class="money">' + money(x.amount) + '</div><div class="muted">receipt ›</div></div></div>';
+    }).join('') : '') +
+    '<div class="acts"><button class="btn p" data-act="m7-payp" data-n="' + esc(p.name) + '">Pay ' + esc(p.name.split(' ')[0]) + '</button><button class="btn s" data-act="m7-agree" data-n="' + esc(p.name) + '">' + (p.agreed !== null ? 'Change agreed price' : 'Agree a price') + '</button></div>');
+}
+function agreeForm(name) {
+  var j = ST.page.data, p = (j.people || []).filter(function (q) { return q.name === name; })[0];
+  var list = (ST.workers || []).slice().sort(function (a, b) { return (b.type === 'Subcontractor') - (a.type === 'Subcontractor'); });
+  if (!list.length) { toast('Add the person in Workers first', true); return; }
+  openSheet('<h2>Agreed price</h2><div class="muted" style="margin-bottom:10px">The price you agreed with a subcontractor for <b>' + esc(j.no) + '</b>. Every payment to them on this job is taken off it, so you see the balance.</div>' +
+    fld('Who', '<select class="in" id="ag-n">' + list.map(function (w) { return '<option value="' + esc(w.name) + '"' + (w.name === name ? ' selected' : '') + '>' + esc(w.name + ' · ' + w.type) + '</option>'; }).join('') + '</select>') +
+    fld('Agreed price for this job (GH₵)', '<input class="in" inputmode="decimal" id="ag-a" value="' + esc(p && p.agreed !== null ? p.agreed : '') + '">') +
+    fld('Note', '<input class="in" id="ag-note" placeholder="e.g. boarding and jointing, 120 m²">') +
+    '<button class="btn p w" data-act="m7-asave">Save</button>' + (p && p.agreed !== null ? '<button class="btn s w" style="margin-top:8px" data-act="m7-aclear">Remove agreed price</button>' : ''));
+}
+function agreeSave(clear) {
+  var x = { job: ST.page.data.no, name: $('#ag-n').value, amount: clear ? '' : $('#ag-a').value, note: $('#ag-note').value.trim() };
+  if (!clear && n(x.amount) <= 0) { toast('Type the agreed price', true); return; }
+  busy(api('apiSetSubPrice', x), 'Saving…').then(function (j) { closeSheet(); openJob(j); toast('Saved'); }).catch(function () { });
+}
+function paidSheet(r) {
+  openSheet('<h2>Paid ' + money(r.amount) + '</h2><div class="muted" style="margin-bottom:12px">' + esc(r.worker) + (r.job ? ' · ' + esc(r.job) : '') + ' · ' + esc(r.method) + '</div>' +
+    '<button class="btn g w" data-act="m7-voucher" data-no="' + esc(r.no) + '" data-w="' + esc(r.worker) + '">' + ICON.pdf + 'Give a receipt</button>' +
+    '<div class="muted" style="margin:6px 0 10px">A PDF they can keep, with a line for their signature' + (r.job ? ' and the balance on this job' : '') + '.</div>' +
+    '<button class="btn s w" data-act="sheet-close">Done</button>');
+}
+
+/* ---- Money page ---- */
+ST.mnMode = 'Month'; ST.mnDate = '';
+function mnRange() {
+  var d = new Date((ST.mnDate || today()) + 'T12:00:00'), a, b;
+  if (ST.mnMode === 'Year') { a = new Date(d.getFullYear(), 0, 1); b = new Date(d.getFullYear(), 11, 31); }
+  else { a = new Date(d.getFullYear(), d.getMonth(), 1); b = new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+  return { from: iso(a), to: iso(b) };
+}
+function loadMoney() {
+  var r = mnRange();
+  return fast('apiMoney', [r.from, r.to], function (d) { ST.money = d; renderMoney(); }, function () { $('#mn-body').innerHTML = '<div class="empty">Loading…</div>'; },
+    function (e) { $('#mn-body').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).catch(function () { });
+}
+function renderMoney() {
+  var d = ST.money; if (!d) return;
+  var i = d.inn, o = d.out, line = function (l, v, act) { return v ? '<div class="kv"' + (act ? ' data-act="' + act + '" style="cursor:pointer"' : '') + '><span>' + l + '</span><span>' + money(v) + '</span></div>' : ''; };
+  var cats = Object.keys(d.byCat).sort(function (a, b) { return d.byCat[b] - d.byCat[a]; });
+  var col = function (v) { return v < 0 ? 'var(--bad)' : 'var(--ok)'; };
+  $('#mn-body').innerHTML =
+    '<div class="card" style="background:var(--deep);color:#fff"><div style="opacity:.8;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Money you have now</div>' +
+    '<div class="money" style="font-size:32px;font-weight:800;margin:4px 0 10px">' + money(d.now.total) + '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:13px">' + [['Cash', d.now.cash], ['MoMo', d.now.momo], ['Bank', d.now.bank]].map(function (x) {
+      return '<div style="background:rgba(255,255,255,.12);border-radius:10px;padding:8px"><div style="opacity:.8">' + x[0] + '</div><b class="money" style="color:' + (x[1] < 0 ? '#ffb4b4' : '#fff') + '">' + money(x[1]).replace('GH₵ ', '') + '</b></div>'; }).join('') + '</div>' +
+    '<div style="font-size:12.5px;opacity:.85;margin-top:10px">' + (d.set ? 'Your starting money on ' + esc(d.opening.dateNice) + ', plus everything received, minus everything spent since.' : '<b>Set your starting money</b> once (what you have in cash, MoMo and bank today), so this matches your pocket.') + '</div>' +
+    '<button class="btn s sm" style="margin-top:10px" data-act="m7-open">' + (d.set ? 'Change starting money' : 'Set my starting money') + '</button></div>' +
+    '<div class="seg" style="margin:12px 0 10px">' + ['Month', 'Year'].map(function (m) { return '<button class="' + (m === ST.mnMode ? 'on' : '') + '" data-act="m7-mode" data-m="' + m + '">' + m + '</button>'; }).join('') + '</div>' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><button class="btn s sm" data-act="m7-shift" data-k="-1" aria-label="Before">‹</button><div style="flex:1;text-align:center;font-weight:700;color:var(--deep)">' + esc(d.label) + '</div><button class="btn s sm" data-act="m7-shift" data-k="1" aria-label="After">›</button></div>' +
+    '<div class="card"><h3>Money in</h3>' + line('Sales paid', i.sales) + line('Debts collected', i.debts) + line('Job payments', i.jobs) + line('Other income', i.other) +
+    '<div class="kv big"><span>Total in</span><span class="money" style="color:var(--ok)">' + money(i.total) + '</span></div>' +
+    '<div class="muted" style="font-size:12.5px">Cash ' + money(i.cash) + ' · MoMo ' + money(i.momo) + ' · Bank ' + money(i.bank) + '</div></div>' +
+    '<div class="card"><h3>Money spent</h3>' + line('Workers &amp; subcontractors', o.people) + line('Materials for jobs (bought outside)', o.jobMat) + line('Stock for the shop', o.stock) + line('Running costs', o.running) +
+    (cats.length ? '<details style="margin:2px 0 6px"><summary class="muted" style="cursor:pointer">Running costs by kind</summary>' + cats.map(function (c) { return kv(c, money(d.byCat[c])); }).join('') + '</details>' : '') +
+    '<div class="kv big"><span>Total spent</span><span class="money" style="color:var(--bad)">' + money(d.spent) + '</span></div></div>' +
+    '<div class="card"><div class="kv big"><span>Profit</span><span class="money" style="color:' + col(d.profit) + '">' + money(d.profit) + '</span></div>' +
+    '<div class="muted" style="font-size:12.5px;margin-bottom:6px">Money in minus money spent.</div>' +
+    (o.drawings ? kv('Taken by owner', '- ' + money(o.drawings)) + '<div class="kv b"><span>Left in the business</span><span class="money" style="color:' + col(d.left) + '">' + money(d.left) + '</span></div>' : '') + '</div>' +
+    '<div class="stats" style="grid-template-columns:1fr 1fr;margin-bottom:12px">' + stat('Owed to you', money(d.owed.total), d.owed.salesN + ' sale(s), ' + d.owed.jobsN + ' job(s)', true) + stat('You still owe', money(d.iOwe), d.iOweList.length ? 'subcontractors' : 'nothing agreed unpaid') + '</div>' +
+    (d.iOweList.length ? '<div class="card"><h3>To pay subcontractors</h3>' + d.iOweList.map(function (x) { return '<div class="kv" data-act="open-job" data-no="' + esc(x.job) + '" style="cursor:pointer"><span>' + esc(x.name) + ' <span class="muted">' + esc(x.job) + '</span></span><span class="money">' + money(x.balance) + '</span></div>'; }).join('') + '</div>' : '') +
+    (d.stockValue ? '<div class="card">' + kv('Value of stock in your store', money(d.stockValue)) + '<div class="muted" style="font-size:12.5px">At the last price you paid (or the estimate price).</div></div>' : '') +
+    (d.jobs.length ? '<div class="sec">Jobs: money in and costs</div>' + d.jobs.map(function (j) {
+      return '<div class="item" data-act="open-job" data-no="' + esc(j.no) + '"><div class="mid"><div class="t">' + esc(j.client) + '</div><div class="sub">' + esc(j.no) + (j.job ? ' · ' + esc(j.job) : '') + ' · received ' + money(j.paid) + ' · costs ' + money(j.cost) + (j.balance > 0 ? ' · owes ' + money(j.balance) : '') + '</div></div>' +
+        '<div class="end"><div class="money" style="color:' + col(j.profit) + '">' + money(j.profit) + '</div><div class="muted">profit</div></div></div>';
+    }).join('') : '');
+}
+function openingForm() {
+  var o = (ST.money && ST.money.opening) || {};
+  openSheet('<h2>Starting money</h2><div class="muted" style="margin-bottom:10px">Count what you have <b>today</b>. From this day the app adds every payment you receive and takes off every expense, so "Money you have now" stays right.</div>' +
+    '<div class="row2">' + fld('Cash in hand (GH₵)', '<input class="in" inputmode="decimal" id="op-cash" value="' + esc(ST.money && ST.money.set ? o.cash : '') + '">') + fld('MoMo balance (GH₵)', '<input class="in" inputmode="decimal" id="op-momo" value="' + esc(ST.money && ST.money.set ? o.momo : '') + '">') + '</div>' +
+    '<div class="row2">' + fld('Bank balance (GH₵)', '<input class="in" inputmode="decimal" id="op-bank" value="' + esc(ST.money && ST.money.set ? o.bank : '') + '">') + fld('As at', '<input class="in" type="date" id="op-date" value="' + today() + '">') + '</div>' +
+    '<button class="btn p w" data-act="m7-osv">Save</button>');
+}
+function moneyNav(k) {
+  var d = new Date((ST.mnDate || today()) + 'T12:00:00');
+  if (ST.mnMode === 'Year') d.setFullYear(d.getFullYear() + k); else d = new Date(d.getFullYear(), d.getMonth() + k, 1);
+  ST.mnDate = iso(d); loadMoney();
+}
+
+/* ---- Preview: see the estimate / invoice before sending; the PDF is made while you look ---- */
+ST.pdfPre = null;
+function pdfPrefetch(kind, no) {
+  if (ST.pdfPre && ST.pdfPre.kind === kind && ST.pdfPre.no === no && !ST.pdfPre.failed) return ST.pdfPre.p;
+  var o = { kind: kind, no: no, at: Date.now() };
+  o.p = api('apiPdf', kind, no).catch(function (e) { o.failed = true; throw e; });
+  o.p.catch(function () { });
+  ST.pdfPre = o; return o.p;
+}
+function openPreview(kind, no) {
+  kind = kind || 'estimate';
+  ST.prev = { kind: kind, no: no };
+  var name = { estimate: 'Estimate', invoice: 'Invoice', proforma: 'Proforma' };
+  openPage('Preview ' + no,
+    '<div class="tog" style="margin-bottom:10px">' + ['estimate', 'invoice', 'proforma'].map(function (k) { return '<button data-act="m7-pk" data-k="' + k + '" class="' + (k === kind ? 'on' : '') + '">' + name[k] + '</button>'; }).join('') + '</div>' +
+    '<div id="pv-box" style="background:#e9eef1;border-radius:12px;overflow:hidden;min-height:200px"><div class="empty"><div class="spin" style="margin:0 auto 8px"></div>Loading preview…</div></div>' +
+    '<div style="position:sticky;bottom:0;background:var(--bg);padding:10px 0 4px">' +
+    '<button class="btn g w" data-act="m7-send">' + ICON.wa + 'Send to client</button>' +
+    '<div class="acts" style="margin:8px 0 0"><button class="btn s" data-act="m7-pedit">Edit</button><button class="btn s" data-act="open-est" data-no="' + esc(no) + '">Back to estimate</button></div></div>');
+  if (isOffline()) { $('#pv-box').innerHTML = '<div class="empty">Preview needs internet. Connect and try again.</div>'; return; }
+  api('apiPreview', kind, no).then(function (r) {
+    var box = $('#pv-box'); if (!box || !ST.prev || ST.prev.no !== no || ST.prev.kind !== kind) return;
+    var W = 640, f = document.createElement('iframe');
+    f.setAttribute('sandbox', 'allow-same-origin'); f.style.cssText = 'border:0;width:' + W + 'px;background:#fff;transform-origin:0 0;display:block';
+    box.innerHTML = ''; box.appendChild(f);
+    var fit = function () {
+      var k = Math.min(1, box.clientWidth / W), h = 1100;
+      try { h = f.contentDocument.documentElement.scrollHeight; } catch (e) { }
+      f.style.height = h + 'px'; f.style.transform = 'scale(' + k + ')'; box.style.height = Math.ceil(h * k) + 'px';
+    };
+    f.onload = function () { fit(); setTimeout(fit, 300); };
+    f.srcdoc = r.html;
+    pdfPrefetch(kind, no);   // start making the PDF now, so Send is quick
+  }).catch(function (e) { var b = $('#pv-box'); if (b) b.innerHTML = '<div class="empty" style="color:var(--bad)">' + esc(e.message) + '</div>'; });
+}
+function m7Act(a, d, el) {
+  switch (a) {
+    case 'm7-recv': stockForm(d.item); return true;
+    case 'm7-out': stockOutForm(d.item || '', d.job || (ST.page && ST.page.kind === 'job' ? ST.page.data.no : '')); return true;
+    case 'm7-osave': stockOutSave(); return true;
+    case 'm7-count': countForm(d.item); return true;
+    case 'm7-csave':
+      var c = $('#cf-n').value; if (c === '') { toast('Type the number you counted', true); return true; }
+      busy(api('apiStockCount', { item: d.item, count: c }), 'Saving…').then(function (p) { ST.products = p; closeSheet(); renderStock(); renderPos(); toast('Stock updated: ' + d.item); }).catch(function () { });
+      return true;
+    case 'm7-edit': productForm(d.item); return true;
+    case 'm7-new': productForm(''); return true;
+    case 'm7-psave': productSave(d.old || ''); return true;
+    case 'm7-outside': expenseForm({ job: ST.page.data.no, cat: (ST.expCats || []).filter(function (c) { return /material/i.test(c); })[0] || 'Materials for jobs' }); return true;
+    case 'm7-person': personSheet(+d.i); return true;
+    case 'm7-payp': expenseForm({ job: ST.page.data.no, worker: d.n }); return true;
+    case 'm7-agree': agreeForm(d.n || ''); return true;
+    case 'm7-asave': agreeSave(false); return true;
+    case 'm7-aclear': agreeSave(true); return true;
+    case 'm7-voucher': shareSheet('voucher', d.no, 'Receipt for ' + (d.w || d.no)); return true;
+    case 'm7-mode': ST.mnMode = d.m; loadMoney(); return true;
+    case 'm7-shift': moneyNav(+d.k); return true;
+    case 'm7-open': openingForm(); return true;
+    case 'm7-osv':
+      var r = mnRange(), x = { cash: $('#op-cash').value, momo: $('#op-momo').value, bank: $('#op-bank').value, date: $('#op-date').value, from: r.from, to: r.to };
+      busy(api('apiSetOpening', x), 'Saving…').then(function (m) { ST.money = m; closeSheet(); renderMoney(); toast('Starting money saved'); }).catch(function () { });
+      return true;
+    case 'm7-prev': openPreview(d.kind || 'estimate', d.no); return true;
+    case 'm7-pk': openPreview(d.k, ST.prev.no); return true;
+    case 'm7-send': var pv = ST.prev; shareSheet(pv.kind, pv.no, { estimate: 'Estimate ', invoice: 'Invoice for ', proforma: 'Proforma invoice for ' }[pv.kind] + pv.no); return true;
+    case 'm7-pedit': busy(api('apiGetEstimate', ST.prev.no), 'Opening…').then(function (e) { estToForm(e, true); }).catch(function () { }); return true;
+  }
+  return false;
+}
+
 /* ============ overlays ============ */
 function openPage(t, html) { $('#page-t').textContent = t; $('#page-b').innerHTML = html; $('#page').classList.add('on'); $('#page').scrollTop = 0; }
 function closePage() { $('#page').classList.remove('on'); ST.page = null; }
@@ -2868,6 +3134,7 @@ document.addEventListener('click', function (ev) {
   if (a.indexOf('rc-') === 0 && rcAct(a, d, el)) return;
   if ((/^(scan|bc-|backup-|pl-|ol-)/.test(a)) && xAct(a, d, el)) return;
   if (a.indexOf('fu-') === 0 && fuAct(a, d)) return;
+  if (a.indexOf('m7-') === 0 && m7Act(a, d, el)) return;
   if (a === 'share-file') {
     if (!ST.pdfFile) return;
     var fallback = function () {
@@ -3020,8 +3287,10 @@ document.addEventListener('click', function (ev) {
     /* stock */
     case 'stk-cat': ST.stkCat = d.c; renderStock(); break;
     case 'stock-in': stockForm(d.item); break;
+    case 'stk-open': stkOpen(d.item); break;
     case 'si-save':
-      var x = { item: $('#si-item').value, qty: n($('#si-qty').value), cost: n($('#si-cost').value), supplier: $('#si-sup').value, date: $('#si-date').value, note: $('#si-note').value };
+      var x = { item: $('#si-item').value, qty: n($('#si-qty').value), cost: n($('#si-cost').value), supplier: $('#si-sup').value, date: $('#si-date').value, note: $('#si-note').value, paid: $('#si-paid') ? $('#si-paid').value : '' };
+      if (x.paid && x.cost <= 0) { toast('Type the unit cost, so the money spent is right', true); break; }
       if (x.qty <= 0) { toast('Enter the quantity', true); break; }
       saveOrQueue('apiStockIn', x, 'Stock in ' + x.qty + ' × ' + x.item, 'Saving…', function (p) { ST.products = p; closeSheet(); renderStock(); renderPos(); toast('Stock received: ' + x.item); }, function () { closeSheet(); });
       break;
